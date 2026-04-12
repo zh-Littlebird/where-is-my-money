@@ -1,0 +1,4 @@
+{
+  "FIREFLY_III_BASE_URL": "https://your-firefly-instance.example.com/",
+  "FIREFLY_III_ACCESS_TOKEN": "your-token-here"
+}

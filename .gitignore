@@ -1,0 +1,17 @@
+# Sensitive config
+config.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Debug artifacts
+temp_list.json
+transfer.json
+
+# OS
+.DS_Store
+
+# claude
+.claude/
