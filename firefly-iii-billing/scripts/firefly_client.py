@@ -328,32 +328,52 @@ class FireflyClient:
     _REVENUE_TYPES = {"revenue", "Revenue account"}
     _EXPENSE_TYPES = {"expense", "Expense account"}
 
+    def _get_nw_excluded_ids(self):
+        """Return a set of account IDs where include_net_worth is false."""
+        accounts = self._get_all_pages("accounts")
+        if isinstance(accounts, dict) and accounts.get("error"):
+            return set()
+        excluded = set()
+        for acc in accounts:
+            attrs = acc.get("attributes", {})
+            if not attrs.get("include_net_worth", True):
+                excluded.add(str(acc.get("id", "")))
+        return excluded
+
     @classmethod
-    def _net_worth_impact(cls, tx):
+    def _net_worth_impact(cls, tx, excluded_account_ids=None):
         """Determine how a transaction affects net worth.
 
-        Returns (income, expense) tuple:
-          - income: amount flowing in from external (revenue) sources
-          - expense: amount flowing out to external (expense) sinks
-          - transfers between asset/liability accounts = (0, 0)
+        A "net-worth account" (NW account) is an asset or liability whose
+        ``include_net_worth`` flag is true.  Revenue / expense accounts and
+        any account in *excluded_account_ids* are treated as **non-NW**.
+
+        Net worth changes when money crosses the NW boundary:
+          - non-NW → NW  ⇒ income  (net worth increases)
+          - NW → non-NW  ⇒ expense (net worth decreases)
+          - NW → NW      ⇒ (0, 0)  (internal transfer)
+          - non-NW → non-NW ⇒ (0, 0)
+
+        Returns (income, expense) tuple.
         """
+        excluded = excluded_account_ids or set()
         amount = float(tx.get("amount", 0))
         src_type = tx.get("source_type", "")
         dst_type = tx.get("destination_type", "")
+        src_id = str(tx.get("source_id", ""))
+        dst_id = str(tx.get("destination_id", ""))
 
-        # Real income: revenue → asset/liability
-        is_income = (src_type in cls._REVENUE_TYPES and
-                     (dst_type in cls._ASSET_TYPES or dst_type in cls._LIABILITY_TYPES))
-        # Real expense: asset/liability → expense
-        is_expense = ((src_type in cls._ASSET_TYPES or src_type in cls._LIABILITY_TYPES) and
-                      dst_type in cls._EXPENSE_TYPES)
+        # An account is a "net-worth account" if it is asset/liability AND
+        # not excluded via include_net_worth=false.
+        src_is_nw = ((src_type in cls._ASSET_TYPES or src_type in cls._LIABILITY_TYPES)
+                     and src_id not in excluded)
+        dst_is_nw = ((dst_type in cls._ASSET_TYPES or dst_type in cls._LIABILITY_TYPES)
+                     and dst_id not in excluded)
 
-        if is_income:
-            return (amount, 0.0)
-        elif is_expense:
-            return (0.0, amount)
-        else:
-            return (0.0, 0.0)
+        income = amount if dst_is_nw and not src_is_nw else 0.0
+        expense = amount if src_is_nw and not dst_is_nw else 0.0
+
+        return (income, expense)
 
     @staticmethod
     def _generate_periods(granularity, count, ref_date=None):
@@ -399,6 +419,9 @@ class FireflyClient:
     def trend_report(self, granularity="monthly", count=6):
         """Generate a multi-period net-growth trend.
 
+        Respects the ``include_net_worth`` flag on accounts: accounts with
+        this flag set to false are excluded from net-worth calculations.
+
         Args:
             granularity: "monthly", "quarterly", or "yearly"
             count: number of periods to include (going backwards from today)
@@ -409,7 +432,9 @@ class FireflyClient:
             - totals: {income, expense, net} across all periods
         """
         period_defs = self._generate_periods(granularity, count)
-        periods = []
+
+        # Pre-fetch accounts excluded from net worth
+        nw_excluded = self._get_nw_excluded_ids()
 
         # Fetch all periods concurrently
         def fetch_one(label, start, end):
@@ -421,7 +446,7 @@ class FireflyClient:
             expense = 0.0
             for group in raw:
                 for tx in group.get("attributes", {}).get("transactions", []):
-                    inc, exp = self._net_worth_impact(tx)
+                    inc, exp = self._net_worth_impact(tx, nw_excluded)
                     income += inc
                     expense += exp
             net = round(income - expense, 2)

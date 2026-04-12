@@ -15,3 +15,5 @@ transfer.json
 
 # claude
 .claude/
+
+/firefly-iii-billing/references/firefly-iii-6.5.5-v1.yaml

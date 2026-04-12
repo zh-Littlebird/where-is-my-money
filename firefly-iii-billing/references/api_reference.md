@@ -42,17 +42,35 @@ Use `?page=N` to fetch subsequent pages. The `FireflyClient._get_all_pages()` me
       "type": "accounts",
       "attributes": {
         "name": "Checking Account",
+        "active": true,
         "type": "asset",
         "account_type_name": "Asset account",
-        "iban": null,
-        "number": null,
+        "account_role": "defaultAsset",
         "currency_code": "CNY",
-        "current_balance": "1000.00"
+        "current_balance": "1000.00",
+        "include_net_worth": true,
+        "iban": null,
+        "account_number": null,
+        "notes": null,
+        "liability_type": null,
+        "liability_direction": null,
+        "interest": null,
+        "interest_period": null
       }
     }
   ]
 }
 ```
+
+### Key Fields
+- `include_net_worth` (boolean, default `true`): Whether this account's balance counts toward the user's net worth. Accounts with `include_net_worth: false` (e.g., provident fund, reimbursement accounts) are excluded from net-worth trend calculations.
+- `account_role` (string, nullable): Sub-role for asset accounts. Values: `defaultAsset`, `sharedAsset`, `savingAsset`, `ccAsset` (credit card), `cashWalletAsset`. NULL for non-asset accounts.
+- `liability_type` (string, nullable): Only for liability accounts. Values: `loan`, `debt`, `mortgage`.
+- `liability_direction` (string, nullable): Only for liability accounts. `"credit"` = somebody owes you (receivable); `"debit"` = you owe this debt (payable).
+- `current_balance` (string): Current balance in the account's currency. For assets: positive = you have funds. For liabilities: sign depends on `liability_direction` and transactions.
+- `active` (boolean, default `true`): Whether the account is active.
+
+> **Full OpenAPI spec**: See `references/firefly-iii-6.5.5-v1.yaml` for the complete API specification (25k+ lines).
 
 ## Categories Endpoint
 `GET /api/v1/categories`
