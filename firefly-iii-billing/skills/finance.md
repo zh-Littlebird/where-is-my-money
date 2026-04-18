@@ -18,11 +18,17 @@ scripts/firefly_client.py piggybanks <TOKEN>
 
 查看所有存钱罐，支持储蓄目标场景（如"往旅行基金存了500"）。
 
+创建存钱罐时遵循 `FIREFLY_III_AUTO_CREATE_PIGGY_BANKS` 开关：默认允许自动新建；若设为 `false`，`FireflyClient` 会直接拒绝创建请求。
+若 `FIREFLY_III_AUTO_CREATE_PIGGY_BANKS=false`，在涉及存钱罐归属或选择时，必须先调用 `piggybanks` 或 `autocomplete piggy-banks` 读取已有列表，并从现有存钱罐中选择；无匹配项时向用户展示现有选项，而不是继续创建。
+
 > Python API 还支持 `create_piggy_bank`、`update_piggy_bank`、`delete_piggy_bank`，可通过 `python3 -c` 调用。
 
 ## 标签管理
 
 通过 Python API 调用（无 CLI 快捷命令）：
+
+创建新标签时遵循 `FIREFLY_III_AUTO_CREATE_TAGS` 开关：默认允许自动新建；若设为 `false`，`FireflyClient` 会直接拒绝创建请求。
+若 `FIREFLY_III_AUTO_CREATE_TAGS=false`，必须先读取现有标签列表，再从已有标签中选择或让用户指定现有标签；不能直接提交新标签名。
 
 ```python
 from scripts.firefly_client import FireflyClient

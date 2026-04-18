@@ -11,21 +11,217 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class FireflyClient:
-    def __init__(self, base_url, token):
+    AUTO_CREATE_CONFIG_DEFAULTS = {
+        "FIREFLY_III_AUTO_CREATE_ACCOUNTS": True,
+        "FIREFLY_III_AUTO_CREATE_CATEGORIES": True,
+        "FIREFLY_III_AUTO_CREATE_TAGS": True,
+        "FIREFLY_III_AUTO_CREATE_BUDGETS": True,
+        "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS": True,
+    }
+    AUTO_CREATE_ENDPOINT_RULES = {
+        "accounts": "FIREFLY_III_AUTO_CREATE_ACCOUNTS",
+        "categories": "FIREFLY_III_AUTO_CREATE_CATEGORIES",
+        "tags": "FIREFLY_III_AUTO_CREATE_TAGS",
+        "budgets": "FIREFLY_III_AUTO_CREATE_BUDGETS",
+        "piggy-banks": "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS",
+    }
+    RESOURCE_SELECTION_HINTS = {
+        "accounts": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> accounts '<QUERY>' and choose an existing account.",
+        "categories": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> categories '<QUERY>' and choose an existing category.",
+        "tags": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> tags '<QUERY>' and choose an existing tag.",
+        "budgets": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> budgets '<QUERY>' and choose an existing budget.",
+        "piggy-banks": "Use scripts/firefly_client.py piggybanks <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> piggy-banks '<QUERY>' and choose an existing piggy bank.",
+        "metadata": "Load the latest Firefly III metadata before assembling the request.",
+        "transactions": "Choose existing accounts, categories, tags, and budgets before submitting the transaction.",
+    }
+
+    def __init__(self, base_url, token, config=None):
         self.base_url = base_url.rstrip('/') + '/api/v1'
         self.token = token
+        merged = self.AUTO_CREATE_CONFIG_DEFAULTS.copy()
+        if config:
+            merged.update(config)
+        self.config = merged
 
     @classmethod
-    def from_config(cls, config_path=None):
+    def load_config(cls, config_path=None):
         if config_path is None:
             config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.json')
         with open(config_path, 'r') as f:
             config = json.load(f)
-        return cls(config['FIREFLY_III_BASE_URL'], config['FIREFLY_III_ACCESS_TOKEN'])
+        merged = cls.AUTO_CREATE_CONFIG_DEFAULTS.copy()
+        merged.update(config)
+        return merged
+
+    @classmethod
+    def from_config(cls, config_path=None):
+        config = cls.load_config(config_path)
+        return cls(config['FIREFLY_III_BASE_URL'], config['FIREFLY_III_ACCESS_TOKEN'], config=config)
+
+    @classmethod
+    def get_auto_create_settings(cls, config_path=None):
+        config = cls.load_config(config_path)
+        return {
+            "accounts": config["FIREFLY_III_AUTO_CREATE_ACCOUNTS"],
+            "categories": config["FIREFLY_III_AUTO_CREATE_CATEGORIES"],
+            "tags": config["FIREFLY_III_AUTO_CREATE_TAGS"],
+            "budgets": config["FIREFLY_III_AUTO_CREATE_BUDGETS"],
+            "piggy_banks": config["FIREFLY_III_AUTO_CREATE_PIGGY_BANKS"],
+        }
+
+    def _policy_error(self, resource, detail, candidates=None):
+        payload = {
+            "error": True,
+            "code": "AUTO_CREATE_DISABLED",
+            "resource": resource,
+            "message": detail,
+            "hint": self.RESOURCE_SELECTION_HINTS.get(resource),
+        }
+        if candidates:
+            payload["candidates"] = candidates
+        return payload
+
+    @staticmethod
+    def _extract_attr_name(item):
+        attrs = item.get("attributes", {})
+        return attrs.get("name") or attrs.get("tag") or ""
+
+    @staticmethod
+    def _normalize_name(value):
+        return value.strip().lower() if isinstance(value, str) else ""
+
+    @staticmethod
+    def _endpoint_root(endpoint):
+        return endpoint.split("?", 1)[0].split("/", 1)[0]
+
+    def _fetch_existing_resource_names(self):
+        metadata = self.list_metadata()
+        if not isinstance(metadata, dict):
+            return None, self._policy_error(
+                "metadata",
+                "Failed to load Firefly III metadata while enforcing auto-create policy."
+            )
+
+        normalized = {}
+        for resource in ("accounts", "categories", "tags", "budgets"):
+            items = metadata.get(resource, [])
+            if not isinstance(items, list):
+                return None, self._policy_error(
+                    resource,
+                    f"Failed to load {resource} metadata while enforcing auto-create policy."
+                )
+            normalized[resource] = {
+                self._normalize_name(self._extract_attr_name(item))
+                for item in items
+                if self._normalize_name(self._extract_attr_name(item))
+            }
+        return normalized, None
+
+    @staticmethod
+    def _sample_candidates(values, limit=10):
+        return sorted(values)[:limit]
+
+    def _ensure_transaction_references_allowed(self, payload):
+        needs_validation = any(
+            not self.config[key]
+            for key in (
+                "FIREFLY_III_AUTO_CREATE_ACCOUNTS",
+                "FIREFLY_III_AUTO_CREATE_CATEGORIES",
+                "FIREFLY_III_AUTO_CREATE_TAGS",
+                "FIREFLY_III_AUTO_CREATE_BUDGETS",
+            )
+        )
+        if not needs_validation:
+            return None
+
+        existing, error = self._fetch_existing_resource_names()
+        if error:
+            return error
+
+        if isinstance(payload, list):
+            transactions = payload
+        else:
+            transactions = payload.get("transactions", payload)
+        if isinstance(transactions, dict):
+            transactions = [transactions]
+        if not isinstance(transactions, list):
+            return self._policy_error("transactions", "Invalid transaction payload.")
+
+        for tx in transactions:
+            if not isinstance(tx, dict):
+                return self._policy_error("transactions", "Invalid transaction payload entry.")
+
+            if not self.config["FIREFLY_III_AUTO_CREATE_ACCOUNTS"]:
+                for field in ("source_name", "destination_name"):
+                    name = self._normalize_name(tx.get(field, ""))
+                    if name and name not in existing["accounts"]:
+                        return self._policy_error(
+                            "accounts",
+                            f"Auto-create disabled: transaction references missing account '{tx.get(field)}'.",
+                            candidates=self._sample_candidates(existing["accounts"])
+                        )
+
+            if not self.config["FIREFLY_III_AUTO_CREATE_CATEGORIES"]:
+                name = self._normalize_name(tx.get("category_name", ""))
+                if name and name not in existing["categories"]:
+                    return self._policy_error(
+                        "categories",
+                        f"Auto-create disabled: transaction references missing category '{tx.get('category_name')}'.",
+                        candidates=self._sample_candidates(existing["categories"])
+                    )
+
+            if not self.config["FIREFLY_III_AUTO_CREATE_BUDGETS"]:
+                name = self._normalize_name(tx.get("budget_name", ""))
+                if name and name not in existing["budgets"]:
+                    return self._policy_error(
+                        "budgets",
+                        f"Auto-create disabled: transaction references missing budget '{tx.get('budget_name')}'.",
+                        candidates=self._sample_candidates(existing["budgets"])
+                    )
+
+            if not self.config["FIREFLY_III_AUTO_CREATE_TAGS"]:
+                tags = tx.get("tags", [])
+                if not isinstance(tags, list):
+                    return self._policy_error("tags", "Transaction tags must be a list.")
+                for tag in tags:
+                    tag_name = tag if isinstance(tag, str) else tag.get("tag", "")
+                    normalized = self._normalize_name(tag_name)
+                    if normalized and normalized not in existing["tags"]:
+                        return self._policy_error(
+                            "tags",
+                            f"Auto-create disabled: transaction references missing tag '{tag_name}'.",
+                            candidates=self._sample_candidates(existing["tags"])
+                        )
+
+        return None
+
+    def _enforce_auto_create_policy(self, method, endpoint, data=None):
+        root = self._endpoint_root(endpoint)
+
+        if method == "POST":
+            config_key = self.AUTO_CREATE_ENDPOINT_RULES.get(root)
+            if config_key and not self.config.get(config_key, True):
+                return self._policy_error(
+                    root,
+                    f"Auto-create disabled by {config_key}: refusing to create {root}."
+                )
+
+        if root == "transactions" and method in {"POST", "PUT"} and data:
+            return self._ensure_transaction_references_allowed(data)
+
+        if endpoint.startswith("data/bulk/transactions") and method == "POST" and data:
+            return self._ensure_transaction_references_allowed(data)
+
+        return None
 
     # ── Core request helpers ──
 
     def _request(self, method, endpoint, data=None, params=None):
+        policy_error = self._enforce_auto_create_policy(method, endpoint, data=data)
+        if policy_error:
+            print(policy_error["message"], file=sys.stderr)
+            return policy_error
+
         url = f"{self.base_url}/{endpoint}"
         if params:
             url = f"{url}?{urllib.parse.urlencode(params)}"
@@ -490,8 +686,7 @@ if __name__ == "__main__":
 
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.json')
     try:
-        with open(config_path, 'r') as f:
-            cfg = json.load(f)
+        cfg = FireflyClient.load_config(config_path)
         base_url = cfg['FIREFLY_III_BASE_URL']
     except (FileNotFoundError, KeyError):
         print("Error: config.json not found or missing FIREFLY_III_BASE_URL. See config.example.json.", file=sys.stderr)

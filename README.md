@@ -55,9 +55,16 @@ firefly-iii-billing/
    ```json
    {
      "FIREFLY_III_BASE_URL": "https://your-firefly-instance.example.com/",
-     "FIREFLY_III_ACCESS_TOKEN": "your-token-here"
+     "FIREFLY_III_ACCESS_TOKEN": "your-token-here",
+     "FIREFLY_III_AUTO_CREATE_ACCOUNTS": true,
+     "FIREFLY_III_AUTO_CREATE_CATEGORIES": true,
+     "FIREFLY_III_AUTO_CREATE_TAGS": true,
+     "FIREFLY_III_AUTO_CREATE_BUDGETS": true,
+     "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS": true
    }
    ```
+
+   以上自动新建开关默认都为 `true`。设为 `false` 后，`FireflyClient` 会在代码层直接拒绝对应创建请求，以及会触发隐式新建的交易提交/更新请求。
 
 3. **在 Claude Code 中注册 skill**
 
@@ -109,6 +116,9 @@ from scripts.firefly_client import FireflyClient
 
 # 从 config.json 初始化
 client = FireflyClient.from_config()
+
+# 读取自动新建配置
+settings = FireflyClient.get_auto_create_settings()
 
 # 获取元数据
 metadata = client.list_metadata()

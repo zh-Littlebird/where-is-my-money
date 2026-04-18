@@ -1,4 +1,9 @@
 {
   "FIREFLY_III_BASE_URL": "https://your-firefly-instance.example.com/",
-  "FIREFLY_III_ACCESS_TOKEN": "your-token-here"
+  "FIREFLY_III_ACCESS_TOKEN": "your-token-here",
+  "FIREFLY_III_AUTO_CREATE_ACCOUNTS": true,
+  "FIREFLY_III_AUTO_CREATE_CATEGORIES": true,
+  "FIREFLY_III_AUTO_CREATE_TAGS": true,
+  "FIREFLY_III_AUTO_CREATE_BUDGETS": true,
+  "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS": true
 }

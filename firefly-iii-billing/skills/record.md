@@ -8,10 +8,20 @@ scripts/firefly_client.py list <TOKEN>
 
 返回并发获取的四类元数据：`accounts`、`categories`、`tags`、`budgets`。
 
+在读取元数据前，先检查 `config.json` 中的自动新建开关。
+
 **元数据使用规则**：
 - 必须实时获取最新数据，不使用缓存
-- **⚠️ 账户、分类、标签、预算必须从 Firefly III 已有数据中选择，严禁自行新建**
-- 若确实无法匹配到已有项，必须明确告知用户并征得同意后才能新建
+- 优先从 Firefly III 已有账户、分类、标签、预算中匹配
+- 若无匹配项，则根据 `config.json` 中的自动新建开关决定是否允许自动新建：
+  - `FIREFLY_III_AUTO_CREATE_ACCOUNTS`
+  - `FIREFLY_III_AUTO_CREATE_CATEGORIES`
+  - `FIREFLY_III_AUTO_CREATE_TAGS`
+  - `FIREFLY_III_AUTO_CREATE_BUDGETS`
+- 以上开关默认均为 `true`；当对应开关为 `false` 时，`FireflyClient` 会强制拒绝会触发新建的提交，不能绕过
+- **强制流程**：只要任一相关开关为 `false`，就必须先读取已有列表，再从列表中选择；不能直接把新的账户名、分类名、标签名、预算名写进交易 payload
+- 若列表中没有合适项，则先向用户展示可选项并让用户改选；不要继续提交会失败的请求
+- 当候选项较多时，优先使用 `autocomplete` 缩小范围，再从返回结果中选择
 - 当不确定支出账户时需要询问用户
 
 ## 步骤 2：解析交易信息
@@ -51,26 +61,31 @@ scripts/firefly_client.py list <TOKEN>
    - 商户名称或消费项目简述
 
 5. **源账户（Source Account）**
-   - **⚠️ 必须从已有账户中匹配，无法匹配时须征得用户同意后才能新建**
+   - 优先从已有账户中匹配；无匹配项时按 `FIREFLY_III_AUTO_CREATE_ACCOUNTS` 决定是否自动新建（默认 `true`）
+   - 若 `FIREFLY_III_AUTO_CREATE_ACCOUNTS=false`，必须从已有账户列表中选择；没有匹配项时向用户展示候选账户并请其指定
    - 支出：资产账户（Asset）或债务账户（Liability）
    - 收入：收入账户（Revenue）
    - 转账：资产账户或债务账户
 
 6. **目标账户（Destination Account）**
-   - **⚠️ 必须从已有账户中匹配，无法匹配时须征得用户同意后才能新建**
+   - 优先从已有账户中匹配；无匹配项时按 `FIREFLY_III_AUTO_CREATE_ACCOUNTS` 决定是否自动新建（默认 `true`）
+   - 若 `FIREFLY_III_AUTO_CREATE_ACCOUNTS=false`，必须从已有账户列表中选择；没有匹配项时向用户展示候选账户并请其指定
    - 支出：支出账户（Expense）
    - 收入：资产账户（Asset）或债务账户（Liability）
    - 转账：资产账户或债务账户
 
 7. **预算（Budget）**
    - 仅支出类型需要选择预算
-   - **必须从元数据列表中选择**，无匹配项时须询问用户是否新建
+   - 优先从元数据列表中选择；无匹配项时按 `FIREFLY_III_AUTO_CREATE_BUDGETS` 决定是否自动新建（默认 `true`）
+   - 若 `FIREFLY_III_AUTO_CREATE_BUDGETS=false`，必须从已有预算列表中选择；没有匹配项时向用户展示现有预算并请其指定
 
 8. **分类（Category）**
-   - **必须从元数据列表中选择**，无匹配项时须询问用户是否新建
+   - 优先从元数据列表中选择；无匹配项时按 `FIREFLY_III_AUTO_CREATE_CATEGORIES` 决定是否自动新建（默认 `true`）
+   - 若 `FIREFLY_III_AUTO_CREATE_CATEGORIES=false`，必须从已有分类列表中选择；没有匹配项时向用户展示现有分类并请其指定
 
 9. **标签（Tags）**
-   - **必须从元数据列表中选择**，无匹配项时须询问用户是否新建
+   - 优先从元数据列表中选择；无匹配项时按 `FIREFLY_III_AUTO_CREATE_TAGS` 决定是否自动新建（默认 `true`）
+   - 若 `FIREFLY_III_AUTO_CREATE_TAGS=false`，必须从已有标签列表中选择；没有匹配项时向用户展示现有标签并请其指定
 
 10. **备注（Notes）**
     - 固定格式：`Auto-synced by Clawdbot from [text/image]`
@@ -79,7 +94,7 @@ scripts/firefly_client.py list <TOKEN>
 
 **文字记账**：
 - 信息明确（金额、账户、时间都清楚）且为常规消费 → 直接记账
-- 信息模糊（账户不确定、需新建账户、时间不明） → 向用户确认
+- 信息模糊（账户不确定、时间不明，或对应自动新建开关为 `false` 且现有列表中没有明确匹配项） → 先展示已有候选项，再向用户确认
 
 **图片记账**：
 - 必须展示识别结果供用户确认
