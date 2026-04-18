@@ -76,8 +76,11 @@ firefly-iii-billing/
 `firefly_client.py` 也可以作为独立 CLI 工具使用：
 
 ```bash
-# 获取账户/分类/标签/预算元数据
+# 获取记账元数据
 python3 scripts/firefly_client.py list <TOKEN>
+
+# 按时间范围列出交易
+python3 scripts/firefly_client.py transactions <TOKEN> [START] [END] [TYPE]
 
 # 提交交易
 python3 scripts/firefly_client.py post <TOKEN> '<JSON_DATA>'
@@ -94,22 +97,40 @@ python3 scripts/firefly_client.py delete <TOKEN> <TRANSACTION_ID>
 # 搜索交易
 python3 scripts/firefly_client.py search <TOKEN> '<QUERY>'
 
-# 自动补全
+# 列出账户
+python3 scripts/firefly_client.py accounts <TOKEN> [TYPE]
+
+# 基础汇总
+python3 scripts/firefly_client.py summary <TOKEN> <START> <END> [CURRENCY_CODE]
+
+# 列出预算及已花金额
+python3 scripts/firefly_client.py budgets <TOKEN> [START] [END]
+
+# 列出预算额度
+python3 scripts/firefly_client.py budget-limits <TOKEN> <START> <END>
+
+# 账户余额趋势
+python3 scripts/firefly_client.py chart-account <TOKEN> <START> <END> [PERIOD]
+
+# 支出分类洞察
+python3 scripts/firefly_client.py insight-expense-category <TOKEN> <START> <END>
+
+# 自动补全（Phase 2）
 python3 scripts/firefly_client.py autocomplete <TOKEN> <RESOURCE_TYPE> '<QUERY>'
 
-# 查看账单
+# 查看账单（Phase 2）
 python3 scripts/firefly_client.py bills <TOKEN>
 
-# 查看存钱罐
+# 查看存钱罐（Phase 2）
 python3 scripts/firefly_client.py piggybanks <TOKEN>
 
-# 查询净资产（默认今天）
+# 查询净资产便捷包装（Phase 2）
 python3 scripts/firefly_client.py networth <TOKEN> [YYYY-MM-DD] [CURRENCY_CODE]
 
-# 月度资金变动报告（默认当月）
+# 月度资金变动报告，本地聚合（Phase 2）
 python3 scripts/firefly_client.py report <TOKEN> [YYYY-MM]
 
-# 多期净增长趋势（默认按月 6 期）
+# 多期净增长趋势，本地聚合（Phase 2）
 python3 scripts/firefly_client.py trend <TOKEN> [monthly|quarterly|yearly] [期数]
 ```
 
@@ -127,17 +148,24 @@ settings = FireflyClient.get_auto_create_settings()
 # 获取元数据
 metadata = client.list_metadata()
 
-# 查询净资产
-networth = client.net_worth_summary("2026-04-18", "CNY")
+# 列出账户
+accounts = client.list_accounts(account_type="asset")
+
+# 读取基础汇总
+summary = client.get_basic_summary("2026-04-01", "2026-04-18", "CNY")
+
+# 读取账户趋势
+chart = client.get_account_chart_overview("2026-01-01", "2026-04-18", period="1M")
+
+# 读取支出分类洞察
+expense_by_category = client.get_expense_category_insight("2026-04-01", "2026-04-18")
 
 # 提交交易
 client.post_transactions('{"type":"withdrawal","amount":"25.50",...}')
 
-# 月度报告
-report = client.monthly_report(2026, 3)
-
-# 趋势分析
-trend = client.trend_report("monthly", 6)
+# 预算与预算额度
+budgets = client.list_budgets("2026-04-01", "2026-04-30")
+budget_limits = client.list_budget_limits("2026-04-01", "2026-04-30")
 ```
 
 ## 安全说明

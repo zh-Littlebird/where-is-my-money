@@ -94,6 +94,20 @@ class FireflyClient:
     def _endpoint_root(endpoint):
         return endpoint.split("?", 1)[0].split("/", 1)[0]
 
+    @staticmethod
+    def _clean_params(params):
+        cleaned = {}
+        for key, value in (params or {}).items():
+            if value is None:
+                continue
+            if isinstance(value, (list, tuple, set)):
+                values = [item for item in value if item is not None]
+                if values:
+                    cleaned[key] = values
+                continue
+            cleaned[key] = value
+        return cleaned
+
     def _fetch_existing_resource_names(self):
         metadata = self.list_metadata()
         if not isinstance(metadata, dict):
@@ -224,7 +238,7 @@ class FireflyClient:
 
         url = f"{self.base_url}/{endpoint}"
         if params:
-            url = f"{url}?{urllib.parse.urlencode(params)}"
+            url = f"{url}?{urllib.parse.urlencode(self._clean_params(params), doseq=True)}"
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/json",
@@ -349,6 +363,52 @@ class FireflyClient:
         payload = self._parse_payload(data_str_or_file)
         return self._request("POST", "data/bulk/transactions", data=payload)
 
+    def list_transactions(self, start=None, end=None, tx_type="all"):
+        """Fetch all transactions in a date range (paginated)."""
+        params = {"type": tx_type}
+        if start:
+            params["start"] = start
+        if end:
+            params["end"] = end
+        return self._get_all_pages("transactions", params=params)
+
+    # ── Accounts ──
+
+    def list_accounts(self, start=None, end=None, date_value=None, account_type=None):
+        params = {
+            "start": start,
+            "end": end,
+            "date": date_value,
+            "type": account_type,
+        }
+        return self._get_all_pages("accounts", params=params)
+
+    def get_account_chart_overview(self, start, end, period=None, preselected=None, accounts=None):
+        params = {
+            "start": start,
+            "end": end,
+            "period": period,
+            "preselected": preselected,
+            "accounts[]": accounts,
+        }
+        return self._request("GET", "chart/account/overview", params=params)
+
+    # ── Budgets ──
+
+    def list_budgets(self, start=None, end=None):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._get_all_pages("budgets", params=params)
+
+    def list_budget_limits(self, start, end):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._get_all_pages("budget-limits", params=params)
+
     # ── Tags ──
 
     def get_tags(self):
@@ -426,17 +486,6 @@ class FireflyClient:
     def upload_attachment(self, attachment_id, file_path):
         return self._request_binary("POST", f"attachments/{attachment_id}/upload", file_path)
 
-    # ── Transactions listing (date-range) ──
-
-    def list_transactions(self, start=None, end=None, tx_type="all"):
-        """Fetch all transactions in a date range (paginated)."""
-        params = {"type": tx_type}
-        if start:
-            params["start"] = start
-        if end:
-            params["end"] = end
-        return self._get_all_pages("transactions", params=params)
-
     # ── Summary / Net worth ──
 
     @staticmethod
@@ -471,6 +520,15 @@ class FireflyClient:
         if currency_code:
             params["currency_code"] = currency_code
         return self._request("GET", "summary/basic", params=params)
+
+    def get_expense_category_insight(self, start, end, categories=None, accounts=None):
+        params = {
+            "start": start,
+            "end": end,
+            "categories[]": categories,
+            "accounts[]": accounts,
+        }
+        return self._request("GET", "insight/expense/category", params=params)
 
     def net_worth_summary(self, as_of=None, currency_code=None, start=None):
         end_date = self._coerce_date(as_of) or date.today()
@@ -764,7 +822,12 @@ class FireflyClient:
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python3 firefly_client.py <action> <token> [data]")
+        print(
+            "Usage: python3 firefly_client.py <action> <token> [data]\n"
+            "Actions: list, transactions, post, get, update, delete, search, accounts, "
+            "summary, budgets, budget-limits, chart-account, insight-expense-category, "
+            "autocomplete, bills, piggybanks, networth, report, trend"
+        )
         sys.exit(1)
 
     action = sys.argv[1]
@@ -782,6 +845,11 @@ if __name__ == "__main__":
 
     if action == "list":
         print(json.dumps(client.list_metadata()))
+    elif action == "transactions":
+        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        tx_type = sys.argv[5] if len(sys.argv) >= 6 else "all"
+        print(json.dumps(client.list_transactions(start=start, end=end, tx_type=tx_type)))
     elif action == "post" and len(sys.argv) >= 4:
         print(json.dumps(client.post_transactions(sys.argv[3])))
     elif action == "search" and len(sys.argv) >= 4:
@@ -792,6 +860,23 @@ if __name__ == "__main__":
         print(json.dumps(client.update_transaction(sys.argv[3], sys.argv[4])))
     elif action == "delete" and len(sys.argv) >= 4:
         print(json.dumps(client.delete_transaction(sys.argv[3])))
+    elif action == "accounts":
+        account_type = sys.argv[3] if len(sys.argv) >= 4 else None
+        print(json.dumps(client.list_accounts(account_type=account_type)))
+    elif action == "summary" and len(sys.argv) >= 5:
+        currency_code = sys.argv[5] if len(sys.argv) >= 6 else None
+        print(json.dumps(client.get_basic_summary(sys.argv[3], sys.argv[4], currency_code=currency_code)))
+    elif action == "budgets":
+        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        print(json.dumps(client.list_budgets(start=start, end=end)))
+    elif action == "budget-limits" and len(sys.argv) >= 5:
+        print(json.dumps(client.list_budget_limits(sys.argv[3], sys.argv[4])))
+    elif action == "chart-account" and len(sys.argv) >= 5:
+        period = sys.argv[5] if len(sys.argv) >= 6 else None
+        print(json.dumps(client.get_account_chart_overview(sys.argv[3], sys.argv[4], period=period)))
+    elif action == "insight-expense-category" and len(sys.argv) >= 5:
+        print(json.dumps(client.get_expense_category_insight(sys.argv[3], sys.argv[4])))
     elif action == "autocomplete" and len(sys.argv) >= 5:
         print(json.dumps(client.autocomplete(sys.argv[3], sys.argv[4])))
     elif action == "bills":

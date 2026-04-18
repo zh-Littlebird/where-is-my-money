@@ -1,4 +1,31 @@
-# 交易搜索与管理
+# 交易查询与管理
+
+## 列出交易
+
+```bash
+scripts/firefly_client.py transactions <TOKEN> [START] [END] [TYPE]
+```
+
+说明：
+- `START` / `END` 使用 `YYYY-MM-DD`
+- `TYPE` 可选，默认 `all`
+- 如果想跳过 `START` 只传 `END`，CLI 中用 `-` 占位
+
+适用场景：
+- “列出本月所有交易”
+- “查 2026-04-01 到 2026-04-18 的支出”
+- 为分析前先拉原始流水
+
+## 列出账户
+
+```bash
+scripts/firefly_client.py accounts <TOKEN> [TYPE]
+```
+
+适用场景：
+- 查询当前账户列表
+- 获取账户分析和净资产分析底座
+- 限制账户类型时可传 `asset`、`liability`、`expense`、`revenue`
 
 ## 搜索交易
 
@@ -36,6 +63,8 @@ scripts/firefly_client.py autocomplete <TOKEN> <RESOURCE_TYPE> '<QUERY>'
 支持的资源类型：`accounts`、`tags`、`categories`、`budgets`、`bills`、`piggy-banks`、`transactions`、`currencies`
 
 比全量 `list` 更轻量，适合交互式模糊匹配。
+
+> `autocomplete` 主要用于记账交互优化，不属于当前 MVP 核心分析链路。
 
 ## 批量更新交易
 
