@@ -11,6 +11,7 @@
 - **账单管理**：管理周期性支出（房租、订阅等）
 - **存钱罐**：管理储蓄目标
 - **标签管理**：标签的增删改查
+- **净资产查询**：查询指定日期的净资产快照
 - **月度报告**：按分类、预算、标签、账户多维度汇总收支
 - **趋势分析**：按月/季度/年展示多期收支净增长趋势
 
@@ -102,6 +103,9 @@ python3 scripts/firefly_client.py bills <TOKEN>
 # 查看存钱罐
 python3 scripts/firefly_client.py piggybanks <TOKEN>
 
+# 查询净资产（默认今天）
+python3 scripts/firefly_client.py networth <TOKEN> [YYYY-MM-DD] [CURRENCY_CODE]
+
 # 月度资金变动报告（默认当月）
 python3 scripts/firefly_client.py report <TOKEN> [YYYY-MM]
 
@@ -122,6 +126,9 @@ settings = FireflyClient.get_auto_create_settings()
 
 # 获取元数据
 metadata = client.list_metadata()
+
+# 查询净资产
+networth = client.net_worth_summary("2026-04-18", "CNY")
 
 # 提交交易
 client.post_transactions('{"type":"withdrawal","amount":"25.50",...}')

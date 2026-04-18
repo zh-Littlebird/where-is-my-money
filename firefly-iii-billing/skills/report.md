@@ -1,5 +1,47 @@
 # 报表与趋势
 
+## 净资产查询
+
+```bash
+# 查询今天的净资产
+scripts/firefly_client.py networth <TOKEN>
+
+# 查询指定日期的净资产
+scripts/firefly_client.py networth <TOKEN> 2026-04-18
+
+# 查询指定日期、指定币种的净资产
+scripts/firefly_client.py networth <TOKEN> 2026-04-18 CNY
+```
+
+**触发场景**：
+- 用户问"我现在净资产多少"、"查下我的总资产"、"截至今天净值是多少"等
+- 用户明确给出某个日期，想看该日的净资产快照
+- 用户需要按币种查看净资产时，可追加 `CURRENCY_CODE`
+
+**实现说明**：
+- 底层使用 `GET /v1/summary/basic`
+- Firefly III 要求 `start < end`，CLI 会自动将查询起点设为目标日期前一天
+- `as_of` 表示你真正想查看的净资产日期，`end` 与它相同
+
+**返回数据**：
+- `as_of`：净资产快照日期
+- `entry`：仅当结果只有一个币种时提供，便于直接读取
+- `entries`：净资产条目列表；每项包含 `monetary_value`、`value_parsed`、`currency_code`、`currency_symbol`
+
+**展示格式**：
+
+```
+净资产（截至 2026-04-18）
+
+- CNY: ¥123,214.79
+```
+
+**展示规则**：
+- 优先展示 `value_parsed`
+- 多币种时逐行列出，不自行换汇合并
+- 若用户只问“当前净资产”，默认查询今天
+- 若用户指定币种，则优先返回该币种的单项结果
+
 ## 月度资金变动报告
 
 ```bash

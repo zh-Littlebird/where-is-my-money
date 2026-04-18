@@ -3,7 +3,7 @@ import json
 import os
 import urllib.request
 import urllib.parse
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from collections import defaultdict
 from urllib.error import URLError, HTTPError
@@ -437,6 +437,92 @@ class FireflyClient:
             params["end"] = end
         return self._get_all_pages("transactions", params=params)
 
+    # ── Summary / Net worth ──
+
+    @staticmethod
+    def _coerce_date(value):
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+    @staticmethod
+    def _format_date(value):
+        return value.strftime("%Y-%m-%d")
+
+    def get_basic_summary(self, start, end, currency_code=None):
+        start_date = self._coerce_date(start)
+        end_date = self._coerce_date(end)
+        if start_date >= end_date:
+            return {
+                "error": True,
+                "message": "summary/basic requires start to be earlier than end.",
+                "start": self._format_date(start_date),
+                "end": self._format_date(end_date),
+            }
+
+        params = {
+            "start": self._format_date(start_date),
+            "end": self._format_date(end_date),
+        }
+        if currency_code:
+            params["currency_code"] = currency_code
+        return self._request("GET", "summary/basic", params=params)
+
+    def net_worth_summary(self, as_of=None, currency_code=None, start=None):
+        end_date = self._coerce_date(as_of) or date.today()
+        # Firefly III rejects summary/basic when start == end, so default to
+        # the previous day while still treating end_date as the "as of" date.
+        start_date = self._coerce_date(start) if start else end_date - timedelta(days=1)
+
+        summary = self.get_basic_summary(start_date, end_date, currency_code=currency_code)
+        if isinstance(summary, dict) and summary.get("error"):
+            return summary
+
+        entries = []
+        for key, entry in summary.items():
+            if not isinstance(entry, dict):
+                continue
+            if not str(entry.get("key", key)).startswith("net-worth-in-"):
+                continue
+            entries.append({
+                "key": entry.get("key", key),
+                "title": entry.get("title"),
+                "monetary_value": float(entry.get("monetary_value", 0)),
+                "value_parsed": entry.get("value_parsed"),
+                "currency_id": entry.get("currency_id"),
+                "currency_code": entry.get("currency_code"),
+                "currency_symbol": entry.get("currency_symbol"),
+                "currency_decimal_places": entry.get("currency_decimal_places"),
+            })
+
+        if currency_code:
+            entries = [item for item in entries if item.get("currency_code") == currency_code]
+
+        if not entries:
+            return {
+                "error": True,
+                "message": "No net-worth entry found in summary/basic response.",
+                "start": self._format_date(start_date),
+                "end": self._format_date(end_date),
+                "currency_code": currency_code,
+            }
+
+        entries.sort(key=lambda item: (item.get("currency_code") or "", item.get("key") or ""))
+        payload = {
+            "as_of": self._format_date(end_date),
+            "start": self._format_date(start_date),
+            "end": self._format_date(end_date),
+            "currency_code": currency_code,
+            "entries": entries,
+        }
+        if len(entries) == 1:
+            payload["entry"] = entries[0]
+        return payload
+
     # ── Monthly Report ──
 
     def monthly_report(self, year=None, month=None):
@@ -712,6 +798,11 @@ if __name__ == "__main__":
         print(json.dumps(client.list_bills()))
     elif action == "piggybanks":
         print(json.dumps(client.list_piggy_banks()))
+    elif action == "networth":
+        # Usage: networth <token> [YYYY-MM-DD] [CURRENCY_CODE]
+        as_of = sys.argv[3] if len(sys.argv) >= 4 else None
+        currency_code = sys.argv[4] if len(sys.argv) >= 5 else None
+        print(json.dumps(client.net_worth_summary(as_of=as_of, currency_code=currency_code)))
     elif action == "report":
         # Usage: report <token> [YYYY-MM]
         year, month = None, None
