@@ -7,6 +7,7 @@
 - **文本记账**：用自然语言描述交易，如"刚打车花了 20"、"昨天在便利店买了饮料 5.6 元"
 - **图片记账**：上传收据、发票、支付截图，自动识别并提取交易信息
 - **交易管理**：查询、更新、删除交易记录
+- **主数据管理**：账户、分类、预算、标签的显式增删改查
 - **高级搜索**：支持多字段、布尔逻辑的搜索语法
 - **账单管理**：管理周期性支出（房租、订阅等）
 - **存钱罐**：管理储蓄目标
@@ -100,11 +101,37 @@ python3 scripts/firefly_client.py search <TOKEN> '<QUERY>'
 # 列出账户
 python3 scripts/firefly_client.py accounts <TOKEN> [TYPE]
 
+# 账户主数据 CRUD
+python3 scripts/firefly_client.py account-get <TOKEN> <ACCOUNT_ID>
+python3 scripts/firefly_client.py account-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py account-update <TOKEN> <ACCOUNT_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py account-delete <TOKEN> <ACCOUNT_ID>
+
+# 分类主数据 CRUD
+python3 scripts/firefly_client.py categories <TOKEN>
+python3 scripts/firefly_client.py category-get <TOKEN> <CATEGORY_ID>
+python3 scripts/firefly_client.py category-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py category-update <TOKEN> <CATEGORY_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py category-delete <TOKEN> <CATEGORY_ID>
+
+# 标签主数据 CRUD
+python3 scripts/firefly_client.py tags <TOKEN>
+python3 scripts/firefly_client.py tag-get <TOKEN> <TAG_OR_ID>
+python3 scripts/firefly_client.py tag-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py tag-update <TOKEN> <TAG_OR_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py tag-delete <TOKEN> <TAG_OR_ID>
+
 # 基础汇总
 python3 scripts/firefly_client.py summary <TOKEN> <START> <END> [CURRENCY_CODE]
 
 # 列出预算及已花金额
 python3 scripts/firefly_client.py budgets <TOKEN> [START] [END]
+
+# 预算主数据 CRUD
+python3 scripts/firefly_client.py budget-get <TOKEN> <BUDGET_ID>
+python3 scripts/firefly_client.py budget-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-update <TOKEN> <BUDGET_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-delete <TOKEN> <BUDGET_ID>
 
 # 列出预算额度
 python3 scripts/firefly_client.py budget-limits <TOKEN> <START> <END>
@@ -151,11 +178,29 @@ metadata = client.list_metadata()
 # 列出账户
 accounts = client.list_accounts(account_type="asset")
 
+# 账户 CRUD
+account = client.get_account("123")
+client.create_account('{"name":"Wallet","type":"asset"}')
+client.update_account("123", '{"name":"Wallet 2"}')
+client.delete_account("123")
+
+# 分类 CRUD
+categories = client.list_categories()
+client.create_category('{"name":"Pets"}')
+client.update_category("123", '{"name":"Pet Care"}')
+client.delete_category("123")
+
 # 读取基础汇总
 summary = client.get_basic_summary("2026-04-01", "2026-04-18", "CNY")
 
 # 读取账户趋势
 chart = client.get_account_chart_overview("2026-01-01", "2026-04-18", period="1M")
+
+# 标签 CRUD
+tags = client.get_tags()
+client.create_tag('{"tag":"coffee"}')
+client.update_tag_payload("coffee", '{"tag":"coffee","description":"Cafe expenses"}')
+client.delete_tag("coffee")
 
 # 读取支出分类洞察
 expense_by_category = client.get_expense_category_insight("2026-04-01", "2026-04-18")
@@ -165,6 +210,10 @@ client.post_transactions('{"type":"withdrawal","amount":"25.50",...}')
 
 # 预算与预算额度
 budgets = client.list_budgets("2026-04-01", "2026-04-30")
+budget = client.get_budget("123")
+client.create_budget('{"name":"Food"}')
+client.update_budget("123", '{"name":"Food 2026"}')
+client.delete_budget("123")
 budget_limits = client.list_budget_limits("2026-04-01", "2026-04-30")
 ```
 

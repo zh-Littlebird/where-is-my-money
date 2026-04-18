@@ -18,13 +18,6 @@ class FireflyClient:
         "FIREFLY_III_AUTO_CREATE_BUDGETS": True,
         "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS": True,
     }
-    AUTO_CREATE_ENDPOINT_RULES = {
-        "accounts": "FIREFLY_III_AUTO_CREATE_ACCOUNTS",
-        "categories": "FIREFLY_III_AUTO_CREATE_CATEGORIES",
-        "tags": "FIREFLY_III_AUTO_CREATE_TAGS",
-        "budgets": "FIREFLY_III_AUTO_CREATE_BUDGETS",
-        "piggy-banks": "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS",
-    }
     RESOURCE_SELECTION_HINTS = {
         "accounts": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> accounts '<QUERY>' and choose an existing account.",
         "categories": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> categories '<QUERY>' and choose an existing category.",
@@ -212,14 +205,6 @@ class FireflyClient:
     def _enforce_auto_create_policy(self, method, endpoint, data=None):
         root = self._endpoint_root(endpoint)
 
-        if method == "POST":
-            config_key = self.AUTO_CREATE_ENDPOINT_RULES.get(root)
-            if config_key and not self.config.get(config_key, True):
-                return self._policy_error(
-                    root,
-                    f"Auto-create disabled by {config_key}: refusing to create {root}."
-                )
-
         if root == "transactions" and method in {"POST", "PUT"} and data:
             return self._ensure_transaction_references_allowed(data)
 
@@ -383,6 +368,25 @@ class FireflyClient:
         }
         return self._get_all_pages("accounts", params=params)
 
+    def get_account(self, account_id, start=None, end=None, date_value=None):
+        params = {
+            "start": start,
+            "end": end,
+            "date": date_value,
+        }
+        return self._request("GET", f"accounts/{account_id}", params=params)
+
+    def create_account(self, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("POST", "accounts", data=payload)
+
+    def update_account(self, account_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("PUT", f"accounts/{account_id}", data=payload)
+
+    def delete_account(self, account_id):
+        return self._request("DELETE", f"accounts/{account_id}")
+
     def get_account_chart_overview(self, start, end, period=None, preselected=None, accounts=None):
         params = {
             "start": start,
@@ -402,6 +406,24 @@ class FireflyClient:
         }
         return self._get_all_pages("budgets", params=params)
 
+    def get_budget(self, budget_id, start=None, end=None):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._request("GET", f"budgets/{budget_id}", params=params)
+
+    def create_budget(self, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("POST", "budgets", data=payload)
+
+    def update_budget(self, budget_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("PUT", f"budgets/{budget_id}", data=payload)
+
+    def delete_budget(self, budget_id):
+        return self._request("DELETE", f"budgets/{budget_id}")
+
     def list_budget_limits(self, start, end):
         params = {
             "start": start,
@@ -409,16 +431,50 @@ class FireflyClient:
         }
         return self._get_all_pages("budget-limits", params=params)
 
+    # ── Categories ──
+
+    def list_categories(self):
+        return self._get_all_pages("categories")
+
+    def get_category(self, category_id, start=None, end=None):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._request("GET", f"categories/{category_id}", params=params)
+
+    def create_category(self, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("POST", "categories", data=payload)
+
+    def update_category(self, category_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("PUT", f"categories/{category_id}", data=payload)
+
+    def delete_category(self, category_id):
+        return self._request("DELETE", f"categories/{category_id}")
+
     # ── Tags ──
 
     def get_tags(self):
         return self._get_all_pages("tags")
+
+    def create_tag(self, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("POST", "tags", data=payload)
 
     def get_tag(self, tag_id):
         return self._request("GET", f"tags/{tag_id}")
 
     def update_tag(self, tag_id, data):
         return self._request("PUT", f"tags/{tag_id}", data=data)
+
+    def update_tag_payload(self, tag_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("PUT", f"tags/{tag_id}", data=payload)
+
+    def delete_tag(self, tag_id):
+        return self._request("DELETE", f"tags/{tag_id}")
 
     def update_tag_description(self, tag_id, description):
         tag = self._request("GET", f"tags/{tag_id}")
@@ -824,8 +880,12 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print(
             "Usage: python3 firefly_client.py <action> <token> [data]\n"
-            "Actions: list, transactions, post, get, update, delete, search, accounts, "
-            "summary, budgets, budget-limits, chart-account, insight-expense-category, "
+            "Actions: list, transactions, post, get, update, delete, search, "
+            "accounts, account-get, account-create, account-update, account-delete, "
+            "categories, category-get, category-create, category-update, category-delete, "
+            "tags, tag-get, tag-create, tag-update, tag-delete, "
+            "budgets, budget-get, budget-create, budget-update, budget-delete, "
+            "summary, budget-limits, chart-account, insight-expense-category, "
             "autocomplete, bills, piggybanks, networth, report, trend"
         )
         sys.exit(1)
@@ -863,6 +923,34 @@ if __name__ == "__main__":
     elif action == "accounts":
         account_type = sys.argv[3] if len(sys.argv) >= 4 else None
         print(json.dumps(client.list_accounts(account_type=account_type)))
+    elif action == "account-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_account(sys.argv[3])))
+    elif action == "account-create" and len(sys.argv) >= 4:
+        print(json.dumps(client.create_account(sys.argv[3])))
+    elif action == "account-update" and len(sys.argv) >= 5:
+        print(json.dumps(client.update_account(sys.argv[3], sys.argv[4])))
+    elif action == "account-delete" and len(sys.argv) >= 4:
+        print(json.dumps(client.delete_account(sys.argv[3])))
+    elif action == "categories":
+        print(json.dumps(client.list_categories()))
+    elif action == "category-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_category(sys.argv[3])))
+    elif action == "category-create" and len(sys.argv) >= 4:
+        print(json.dumps(client.create_category(sys.argv[3])))
+    elif action == "category-update" and len(sys.argv) >= 5:
+        print(json.dumps(client.update_category(sys.argv[3], sys.argv[4])))
+    elif action == "category-delete" and len(sys.argv) >= 4:
+        print(json.dumps(client.delete_category(sys.argv[3])))
+    elif action == "tags":
+        print(json.dumps(client.get_tags()))
+    elif action == "tag-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_tag(sys.argv[3])))
+    elif action == "tag-create" and len(sys.argv) >= 4:
+        print(json.dumps(client.create_tag(sys.argv[3])))
+    elif action == "tag-update" and len(sys.argv) >= 5:
+        print(json.dumps(client.update_tag_payload(sys.argv[3], sys.argv[4])))
+    elif action == "tag-delete" and len(sys.argv) >= 4:
+        print(json.dumps(client.delete_tag(sys.argv[3])))
     elif action == "summary" and len(sys.argv) >= 5:
         currency_code = sys.argv[5] if len(sys.argv) >= 6 else None
         print(json.dumps(client.get_basic_summary(sys.argv[3], sys.argv[4], currency_code=currency_code)))
@@ -870,6 +958,14 @@ if __name__ == "__main__":
         start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
         end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
         print(json.dumps(client.list_budgets(start=start, end=end)))
+    elif action == "budget-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_budget(sys.argv[3])))
+    elif action == "budget-create" and len(sys.argv) >= 4:
+        print(json.dumps(client.create_budget(sys.argv[3])))
+    elif action == "budget-update" and len(sys.argv) >= 5:
+        print(json.dumps(client.update_budget(sys.argv[3], sys.argv[4])))
+    elif action == "budget-delete" and len(sys.argv) >= 4:
+        print(json.dumps(client.delete_budget(sys.argv[3])))
     elif action == "budget-limits" and len(sys.argv) >= 5:
         print(json.dumps(client.list_budget_limits(sys.argv[3], sys.argv[4])))
     elif action == "chart-account" and len(sys.argv) >= 5:

@@ -1,6 +1,6 @@
 # 财务管理（Phase 2）
 
-本文件中的能力暂不属于当前 agent MVP 主链路。只有当用户明确要求账单、存钱目标、标签维护或附件上传时，再加载并使用。
+本文件中的能力暂不属于当前 agent MVP 主链路。只有当用户明确要求账单、存钱目标或附件上传时，再加载并使用。
 
 ## 账单管理
 
@@ -20,17 +20,19 @@ scripts/firefly_client.py piggybanks <TOKEN>
 
 查看所有存钱罐，支持储蓄目标场景（如"往旅行基金存了500"）。
 
-创建存钱罐时遵循 `FIREFLY_III_AUTO_CREATE_PIGGY_BANKS` 开关：默认允许自动新建；若设为 `false`，`FireflyClient` 会直接拒绝创建请求。
-若 `FIREFLY_III_AUTO_CREATE_PIGGY_BANKS=false`，在涉及存钱罐归属或选择时，必须先调用 `piggybanks` 或 `autocomplete piggy-banks` 读取已有列表，并从现有存钱罐中选择；无匹配项时向用户展示现有选项，而不是继续创建。
+`FIREFLY_III_AUTO_CREATE_PIGGY_BANKS` 约束的是交易/归属流程里的隐式自动新建，不拦截用户明确要求的显式创建。
+若 `FIREFLY_III_AUTO_CREATE_PIGGY_BANKS=false`，在涉及存钱罐归属或选择时，必须先调用 `piggybanks` 或 `autocomplete piggy-banks` 读取已有列表，并从现有存钱罐中选择；无匹配项时向用户展示现有选项，而不是继续隐式创建。
 
 > Python API 还支持 `create_piggy_bank`、`update_piggy_bank`、`delete_piggy_bank`，可通过 `python3 -c` 调用。
 
 ## 标签管理
 
-通过 Python API 调用（无 CLI 快捷命令）：
+标签已升级为主数据管理能力，优先加载 `skills/masterdata.md`。
 
-创建新标签时遵循 `FIREFLY_III_AUTO_CREATE_TAGS` 开关：默认允许自动新建；若设为 `false`，`FireflyClient` 会直接拒绝创建请求。
-若 `FIREFLY_III_AUTO_CREATE_TAGS=false`，必须先读取现有标签列表，再从已有标签中选择或让用户指定现有标签；不能直接提交新标签名。
+如需仅通过 Python API 操作，也可使用：
+
+`FIREFLY_III_AUTO_CREATE_TAGS` 约束的是交易流程里的隐式自动新建。
+若 `FIREFLY_III_AUTO_CREATE_TAGS=false`，必须先读取现有标签列表，再从已有标签中选择或让用户指定现有标签；不能在交易 payload 中直接提交新的标签名。
 
 ```python
 from scripts.firefly_client import FireflyClient
