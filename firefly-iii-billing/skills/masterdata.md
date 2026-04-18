@@ -73,12 +73,28 @@ scripts/firefly_client.py budget-update <TOKEN> <BUDGET_ID> '<JSON_DATA>'
 
 # 删除
 scripts/firefly_client.py budget-delete <TOKEN> <BUDGET_ID>
+
+# 可用预算
+scripts/firefly_client.py available-budgets <TOKEN> [START] [END]
+scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
+
+# 预算额度明细
+scripts/firefly_client.py budget-limit-list <TOKEN> <BUDGET_ID> [START] [END]
+scripts/firefly_client.py budget-limit-get <TOKEN> <BUDGET_ID> <LIMIT_ID>
+scripts/firefly_client.py budget-limit-create <TOKEN> <BUDGET_ID> '<JSON_DATA>'
+scripts/firefly_client.py budget-limit-update <TOKEN> <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
+scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
 ```
 
 说明：
 - `budgets` 带日期时会返回该时间段已花金额
 - `budget-get` / `budget-update` / `budget-delete` 面向预算定义本身
-- 预算额度仍使用 `budget-limits`
+- `available-budgets` 面向 Firefly III 计算出的可用预算金额
+- `budget-limits` 是跨预算、按日期范围的额度总表
+- `budget-limit-list/get/create/update/delete` 面向某个预算下面的额度分段明细
+- 关闭预算的自动月预算时，不要把 `auto_budget_type` / `auto_budget_period` / `auto_budget_amount` 直接传 `null` 或把金额设为 `0`，Firefly III 常会返回 `422`
+- 实测可用写法：`budget-update` 时传 `auto_budget_type: "none"`，同时保留一个大于 `0` 的 `auto_budget_amount` 与原 `auto_budget_period`；接口会在保存后把这三个字段清成 `null`，从而真正关闭自动预算
+- 若是新建预算额度 `budget-limit-create`，`currency_id` 应传整数而不是字符串；字符串在部分 Firefly III 版本会触发 `500`
 
 ## 标签
 

@@ -133,8 +133,24 @@ python3 scripts/firefly_client.py budget-create <TOKEN> '<JSON_DATA>'
 python3 scripts/firefly_client.py budget-update <TOKEN> <BUDGET_ID> '<JSON_DATA>'
 python3 scripts/firefly_client.py budget-delete <TOKEN> <BUDGET_ID>
 
+# 列出可用预算余额/周期
+python3 scripts/firefly_client.py available-budgets <TOKEN> [START] [END]
+python3 scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
+
 # 列出预算额度
 python3 scripts/firefly_client.py budget-limits <TOKEN> <START> <END>
+
+# 预算额度明细 CRUD
+python3 scripts/firefly_client.py budget-limit-list <TOKEN> <BUDGET_ID> [START] [END]
+python3 scripts/firefly_client.py budget-limit-get <TOKEN> <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py budget-limit-create <TOKEN> <BUDGET_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-update <TOKEN> <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
+
+# 预算相关交易明细
+python3 scripts/firefly_client.py budget-transactions <TOKEN> <BUDGET_ID> [START] [END] [TYPE]
+python3 scripts/firefly_client.py budget-limit-transactions <TOKEN> <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYPE]
 
 # 账户余额趋势
 python3 scripts/firefly_client.py chart-account <TOKEN> <START> <END> [PERIOD]
@@ -214,7 +230,17 @@ budget = client.get_budget("123")
 client.create_budget('{"name":"Food"}')
 client.update_budget("123", '{"name":"Food 2026"}')
 client.delete_budget("123")
+available_budgets = client.list_available_budgets("2026-04-01", "2026-04-30")
+available_budget = client.get_available_budget("123")
 budget_limits = client.list_budget_limits("2026-04-01", "2026-04-30")
+budget_limit_rows = client.list_budget_limits_by_budget("123", "2026-04-01", "2026-04-30")
+budget_limit = client.get_budget_limit("123", "456")
+client.create_budget_limit("123", '{"budget_id":"123","start":"2026-04-01","end":"2026-04-30","amount":"3000"}')
+client.update_budget_limit("123", "456", '{"amount":"3200"}')
+client.delete_budget_limit("123", "456")
+budget_transactions = client.list_budget_transactions("123", "2026-04-01", "2026-04-30", tx_type="withdrawal")
+budget_limit_transactions = client.list_budget_limit_transactions("123", "456")
+transactions_without_budget = client.list_transactions_without_budget("2026-04-01", "2026-04-30", tx_type="withdrawal")
 ```
 
 ## 安全说明

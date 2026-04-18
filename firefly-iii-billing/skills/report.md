@@ -127,23 +127,80 @@ scripts/firefly_client.py budgets <TOKEN> [START] [END]
 - 不带日期时，主要拿预算定义
 - 带 `START`、`END` 时，Firefly III 会返回该时间段内的 `spent` 信息
 
+## 可用预算
+
+```bash
+scripts/firefly_client.py available-budgets <TOKEN> [START] [END]
+scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
+```
+
+对应接口：
+- `GET /v1/available-budgets`
+- `GET /v1/available-budgets/{id}`
+
+适用场景：
+- “这段时间预算池里实际可分配的钱还有多少”
+- “预算额度是怎么分期落下来的”
+
+说明：
+- 这不是单个预算的已花/限额，而是 Firefly III 计算出的可用预算金额及其周期
+- 和 `budgets` / `budget-limits` 一起看，能区分“预算设了多少”和“本期真正可用多少”
+
 ## 预算额度
 
 ```bash
 scripts/firefly_client.py budget-limits <TOKEN> <START> <END>
+scripts/firefly_client.py budget-limit-list <TOKEN> <BUDGET_ID> [START] [END]
+scripts/firefly_client.py budget-limit-get <TOKEN> <BUDGET_ID> <LIMIT_ID>
+scripts/firefly_client.py budget-limit-create <TOKEN> <BUDGET_ID> '<JSON_DATA>'
+scripts/firefly_client.py budget-limit-update <TOKEN> <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
+scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
 ```
 
 对应接口：
 - `GET /v1/budget-limits`
+- `GET /v1/budgets/{id}/limits`
+- `GET /v1/budgets/{id}/limits/{limitId}`
+- `POST /v1/budgets/{id}/limits`
+- `PUT /v1/budgets/{id}/limits/{limitId}`
+- `DELETE /v1/budgets/{id}/limits/{limitId}`
 
 适用场景：
 - “预算上限是多少”
 - “还剩多少预算”
 - “哪些预算已经超支”
+- “给某个预算补一条新月份额度”
+- “修正某条预算额度备注/金额/时间范围”
 
 说明：
 - 预算分析时，`budgets` 和 `budget-limits` 必须结合看
 - `budgets` 解决“花了多少”，`budget-limits` 解决“额度是多少”
+- `budget-limit-list` / `budget-limit-get` 解决“这个预算具体有哪些额度分段”
+- `budget-limit-create/update/delete` 用于显式维护预算额度，不要再绕回主预算对象
+
+## 预算交易闭环
+
+```bash
+scripts/firefly_client.py budget-transactions <TOKEN> <BUDGET_ID> [START] [END] [TYPE]
+scripts/firefly_client.py budget-limit-transactions <TOKEN> <BUDGET_ID> <LIMIT_ID>
+scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYPE]
+```
+
+对应接口：
+- `GET /v1/budgets/{id}/transactions`
+- `GET /v1/budgets/{id}/limits/{limitId}/transactions`
+- `GET /v1/budgets/transactions-without-budget`
+
+适用场景：
+- “这个预算为什么超了”
+- “超的是哪几笔”
+- “有哪些支出没挂预算，钱漏记到哪了”
+
+使用规则：
+- 先用 `budgets` / `budget-limits` 找到异常预算，再回查 `budget-transactions` 或 `budget-limit-transactions`
+- `budget-limit-transactions` 的时间范围由预算额度本身决定，最适合解释某个额度分段为何超支
+- `transactions-without-budget` 用于查漏配，定位应该归到预算但当前没挂上的交易
+- 需要限制交易类型时，`budget-transactions` 和 `transactions-without-budget` 可追加 `TYPE`，例如 `withdrawal`
 
 ## Phase 2 包装能力
 

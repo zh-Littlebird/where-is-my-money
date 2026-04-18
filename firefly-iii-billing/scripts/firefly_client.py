@@ -464,6 +464,56 @@ class FireflyClient:
         }
         return self._get_all_pages("budget-limits", params=params)
 
+    def list_available_budgets(self, start=None, end=None):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._get_all_pages("available-budgets", params=params)
+
+    def get_available_budget(self, budget_id):
+        return self._request("GET", f"available-budgets/{budget_id}")
+
+    def list_budget_limits_by_budget(self, budget_id, start=None, end=None):
+        params = {
+            "start": start,
+            "end": end,
+        }
+        return self._get_all_pages(f"budgets/{budget_id}/limits", params=params)
+
+    def get_budget_limit(self, budget_id, limit_id):
+        return self._request("GET", f"budgets/{budget_id}/limits/{limit_id}")
+
+    def create_budget_limit(self, budget_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("POST", f"budgets/{budget_id}/limits", data=payload)
+
+    def update_budget_limit(self, budget_id, limit_id, data_str_or_file):
+        payload = self._parse_payload(data_str_or_file)
+        return self._request("PUT", f"budgets/{budget_id}/limits/{limit_id}", data=payload)
+
+    def delete_budget_limit(self, budget_id, limit_id):
+        return self._request("DELETE", f"budgets/{budget_id}/limits/{limit_id}")
+
+    def list_budget_transactions(self, budget_id, start=None, end=None, tx_type=None):
+        params = {
+            "start": start,
+            "end": end,
+            "type": tx_type,
+        }
+        return self._get_all_pages(f"budgets/{budget_id}/transactions", params=params)
+
+    def list_budget_limit_transactions(self, budget_id, limit_id):
+        return self._get_all_pages(f"budgets/{budget_id}/limits/{limit_id}/transactions")
+
+    def list_transactions_without_budget(self, start=None, end=None, tx_type=None):
+        params = {
+            "start": start,
+            "end": end,
+            "type": tx_type,
+        }
+        return self._get_all_pages("budgets/transactions-without-budget", params=params)
+
     # ── Categories ──
 
     def list_categories(self):
@@ -953,7 +1003,10 @@ if __name__ == "__main__":
             "categories, category-get, category-create, category-update, category-delete, "
             "tags, tag-get, tag-create, tag-update, tag-delete, "
             "budgets, budget-get, budget-create, budget-update, budget-delete, "
-            "summary, budget-limits, chart-account, insight, insight-expense-category, "
+            "available-budgets, available-budget-get, budget-limits, budget-limit-list, "
+            "budget-limit-get, budget-limit-create, budget-limit-update, budget-limit-delete, "
+            "budget-transactions, budget-limit-transactions, transactions-without-budget, "
+            "summary, chart-account, insight, insight-expense-category, "
             "autocomplete, bills, bill-get, bill-create, bill-update, bill-delete, "
             "piggybanks, piggybank-get, piggybank-create, piggybank-update, piggybank-delete, "
             "attachment-create, attachment-upload, networth, report, trend"
@@ -1038,8 +1091,38 @@ if __name__ == "__main__":
         print(json.dumps(client.update_budget(sys.argv[3], sys.argv[4])))
     elif action == "budget-delete" and len(sys.argv) >= 4:
         print(json.dumps(client.delete_budget(sys.argv[3])))
+    elif action == "available-budgets":
+        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        print(json.dumps(client.list_available_budgets(start=start, end=end)))
+    elif action == "available-budget-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_available_budget(sys.argv[3])))
     elif action == "budget-limits" and len(sys.argv) >= 5:
         print(json.dumps(client.list_budget_limits(sys.argv[3], sys.argv[4])))
+    elif action == "budget-limit-list" and len(sys.argv) >= 4:
+        start = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        end = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
+        print(json.dumps(client.list_budget_limits_by_budget(sys.argv[3], start=start, end=end)))
+    elif action == "budget-limit-get" and len(sys.argv) >= 5:
+        print(json.dumps(client.get_budget_limit(sys.argv[3], sys.argv[4])))
+    elif action == "budget-limit-create" and len(sys.argv) >= 5:
+        print(json.dumps(client.create_budget_limit(sys.argv[3], sys.argv[4])))
+    elif action == "budget-limit-update" and len(sys.argv) >= 6:
+        print(json.dumps(client.update_budget_limit(sys.argv[3], sys.argv[4], sys.argv[5])))
+    elif action == "budget-limit-delete" and len(sys.argv) >= 5:
+        print(json.dumps(client.delete_budget_limit(sys.argv[3], sys.argv[4])))
+    elif action == "budget-transactions" and len(sys.argv) >= 4:
+        start = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        end = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
+        tx_type = sys.argv[6] if len(sys.argv) >= 7 and sys.argv[6] != "-" else None
+        print(json.dumps(client.list_budget_transactions(sys.argv[3], start=start, end=end, tx_type=tx_type)))
+    elif action == "budget-limit-transactions" and len(sys.argv) >= 5:
+        print(json.dumps(client.list_budget_limit_transactions(sys.argv[3], sys.argv[4])))
+    elif action == "transactions-without-budget":
+        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        tx_type = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
+        print(json.dumps(client.list_transactions_without_budget(start=start, end=end, tx_type=tx_type)))
     elif action == "chart-account" and len(sys.argv) >= 5:
         period = sys.argv[5] if len(sys.argv) >= 6 else None
         print(json.dumps(client.get_account_chart_overview(sys.argv[3], sys.argv[4], period=period)))

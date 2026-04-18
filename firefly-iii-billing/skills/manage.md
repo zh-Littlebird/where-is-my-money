@@ -79,3 +79,21 @@ scripts/firefly_client.py bulk-update <TOKEN> '<JSON_DATA>'
 说明：
 - 提交内容直接透传到 `POST /v1/data/bulk/transactions`
 - 创建新交易仍使用 `post`，这里仅用于批量更新已有交易
+
+## 预算相关交易查询
+
+```bash
+scripts/firefly_client.py budget-transactions <TOKEN> <BUDGET_ID> [START] [END] [TYPE]
+scripts/firefly_client.py budget-limit-transactions <TOKEN> <BUDGET_ID> <LIMIT_ID>
+scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYPE]
+```
+
+适用场景：
+- 查询某个预算下的全部交易
+- 追查某个预算额度分段内为什么超支
+- 查找没有挂预算的支出，补齐漏配数据
+
+说明：
+- `budget-transactions` 支持按日期和交易类型过滤
+- `budget-limit-transactions` 直接对应某条预算额度，不再额外传时间范围
+- `transactions-without-budget` 适合和 `insight expense no-budget` 配合：前者看明细，后者看聚合
