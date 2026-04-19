@@ -19,11 +19,11 @@ class FireflyClient:
         "FIREFLY_III_AUTO_CREATE_PIGGY_BANKS": True,
     }
     RESOURCE_SELECTION_HINTS = {
-        "accounts": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> accounts '<QUERY>' and choose an existing account.",
-        "categories": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> categories '<QUERY>' and choose an existing category.",
-        "tags": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> tags '<QUERY>' and choose an existing tag.",
-        "budgets": "Use scripts/firefly_client.py list <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> budgets '<QUERY>' and choose an existing budget.",
-        "piggy-banks": "Use scripts/firefly_client.py piggybanks <TOKEN> or scripts/firefly_client.py autocomplete <TOKEN> piggy-banks '<QUERY>' and choose an existing piggy bank.",
+        "accounts": "Use scripts/firefly_client.py list or scripts/firefly_client.py autocomplete accounts '<QUERY>' and choose an existing account.",
+        "categories": "Use scripts/firefly_client.py list or scripts/firefly_client.py autocomplete categories '<QUERY>' and choose an existing category.",
+        "tags": "Use scripts/firefly_client.py list or scripts/firefly_client.py autocomplete tags '<QUERY>' and choose an existing tag.",
+        "budgets": "Use scripts/firefly_client.py list or scripts/firefly_client.py autocomplete budgets '<QUERY>' and choose an existing budget.",
+        "piggy-banks": "Use scripts/firefly_client.py piggybanks or scripts/firefly_client.py autocomplete piggy-banks '<QUERY>' and choose an existing piggy bank.",
         "metadata": "Load the latest Firefly III metadata before assembling the request.",
         "transactions": "Choose existing accounts, categories, tags, and budgets before submitting the transaction.",
     }
@@ -70,11 +70,6 @@ class FireflyClient:
         return cls(config['FIREFLY_III_BASE_URL'], config['FIREFLY_III_ACCESS_TOKEN'], config=config)
 
     @classmethod
-    def from_cli_token(cls, token, config_path=None):
-        config = cls.load_config(config_path)
-        return cls(config['FIREFLY_III_BASE_URL'], token, config=config)
-
-    @classmethod
     def get_auto_create_settings(cls, config_path=None):
         config = cls.load_config(config_path)
         return {
@@ -115,6 +110,10 @@ class FireflyClient:
     @staticmethod
     def _endpoint_root(endpoint):
         return endpoint.split("?", 1)[0].split("/", 1)[0]
+
+    @staticmethod
+    def _quote_path_segment(value):
+        return urllib.parse.quote(str(value), safe="")
 
     @staticmethod
     def _clean_params(params):
@@ -713,25 +712,26 @@ class FireflyClient:
         return self._request("POST", "tags", data=payload)
 
     def get_tag(self, tag_id):
-        return self._request("GET", f"tags/{tag_id}")
+        return self._request("GET", f"tags/{self._quote_path_segment(tag_id)}")
 
     def update_tag(self, tag_id, data):
-        return self._request("PUT", f"tags/{tag_id}", data=data)
+        return self._request("PUT", f"tags/{self._quote_path_segment(tag_id)}", data=data)
 
     def update_tag_payload(self, tag_id, data_str_or_file):
         payload = self._parse_payload(data_str_or_file)
-        return self._request("PUT", f"tags/{tag_id}", data=payload)
+        return self._request("PUT", f"tags/{self._quote_path_segment(tag_id)}", data=payload)
 
     def delete_tag(self, tag_id):
-        return self._request("DELETE", f"tags/{tag_id}")
+        return self._request("DELETE", f"tags/{self._quote_path_segment(tag_id)}")
 
     def update_tag_description(self, tag_id, description):
-        tag = self._request("GET", f"tags/{tag_id}")
+        encoded_tag_id = self._quote_path_segment(tag_id)
+        tag = self._request("GET", f"tags/{encoded_tag_id}")
         if isinstance(tag, dict) and tag.get('error'):
             return tag
         attrs = tag['data']['attributes'].copy()
         attrs['description'] = description
-        return self._request("PUT", f"tags/{tag_id}", data=attrs)
+        return self._request("PUT", f"tags/{encoded_tag_id}", data=attrs)
 
     # ── Autocomplete ──
 
@@ -1161,9 +1161,10 @@ class FireflyClient:
 # ── CLI ──
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print(
-            "Usage: python3 firefly_client.py <action> <token> [data]\n"
+            "Usage: python3 firefly_client.py <action> [args]\n"
+            "Auth: reads FIREFLY_III_BASE_URL and FIREFLY_III_ACCESS_TOKEN from config.json\n"
             "Actions: list, transactions, post, get, update, delete, search, bulk-update, "
             "accounts, account-get, account-create, account-update, account-delete, "
             "categories, category-get, category-create, category-update, category-delete, "
@@ -1180,176 +1181,179 @@ if __name__ == "__main__":
         sys.exit(1)
 
     action = sys.argv[1]
-    token = sys.argv[2]
 
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.json')
     try:
-        client = FireflyClient.from_cli_token(token, config_path=config_path)
+        client = FireflyClient.from_config(config_path=config_path)
     except (FileNotFoundError, KeyError):
-        print("Error: config.json not found or missing FIREFLY_III_BASE_URL. See config.example.json.", file=sys.stderr)
+        print(
+            "Error: config.json not found or missing FIREFLY_III_BASE_URL/FIREFLY_III_ACCESS_TOKEN. "
+            "See config.example.json.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if action == "list":
         print(json.dumps(client.list_metadata()))
     elif action == "transactions":
-        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
-        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
-        tx_type = sys.argv[5] if len(sys.argv) >= 6 else "all"
+        start = sys.argv[2] if len(sys.argv) >= 3 and sys.argv[2] != "-" else None
+        end = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        tx_type = sys.argv[4] if len(sys.argv) >= 5 else "all"
         print(json.dumps(client.list_transactions(start=start, end=end, tx_type=tx_type)))
-    elif action == "post" and len(sys.argv) >= 4:
-        print(json.dumps(client.post_transactions(sys.argv[3])))
-    elif action == "search" and len(sys.argv) >= 4:
-        print(json.dumps(client.search_transactions(sys.argv[3])))
-    elif action == "bulk-update" and len(sys.argv) >= 4:
-        print(json.dumps(client.bulk_update_transactions(sys.argv[3])))
-    elif action == "get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_transaction(sys.argv[3])))
-    elif action == "update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_transaction(sys.argv[3], sys.argv[4])))
-    elif action == "delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_transaction(sys.argv[3])))
+    elif action == "post" and len(sys.argv) >= 3:
+        print(json.dumps(client.post_transactions(sys.argv[2])))
+    elif action == "search" and len(sys.argv) >= 3:
+        print(json.dumps(client.search_transactions(sys.argv[2])))
+    elif action == "bulk-update" and len(sys.argv) >= 3:
+        print(json.dumps(client.bulk_update_transactions(sys.argv[2])))
+    elif action == "get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_transaction(sys.argv[2])))
+    elif action == "update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_transaction(sys.argv[2], sys.argv[3])))
+    elif action == "delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_transaction(sys.argv[2])))
     elif action == "accounts":
-        account_type = sys.argv[3] if len(sys.argv) >= 4 else None
+        account_type = sys.argv[2] if len(sys.argv) >= 3 else None
         print(json.dumps(client.list_accounts(account_type=account_type)))
-    elif action == "account-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_account(sys.argv[3])))
-    elif action == "account-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_account(sys.argv[3])))
-    elif action == "account-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_account(sys.argv[3], sys.argv[4])))
-    elif action == "account-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_account(sys.argv[3])))
+    elif action == "account-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_account(sys.argv[2])))
+    elif action == "account-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_account(sys.argv[2])))
+    elif action == "account-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_account(sys.argv[2], sys.argv[3])))
+    elif action == "account-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_account(sys.argv[2])))
     elif action == "categories":
         print(json.dumps(client.list_categories()))
-    elif action == "category-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_category(sys.argv[3])))
-    elif action == "category-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_category(sys.argv[3])))
-    elif action == "category-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_category(sys.argv[3], sys.argv[4])))
-    elif action == "category-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_category(sys.argv[3])))
+    elif action == "category-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_category(sys.argv[2])))
+    elif action == "category-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_category(sys.argv[2])))
+    elif action == "category-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_category(sys.argv[2], sys.argv[3])))
+    elif action == "category-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_category(sys.argv[2])))
     elif action == "tags":
         print(json.dumps(client.get_tags()))
-    elif action == "tag-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_tag(sys.argv[3])))
-    elif action == "tag-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_tag(sys.argv[3])))
-    elif action == "tag-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_tag_payload(sys.argv[3], sys.argv[4])))
-    elif action == "tag-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_tag(sys.argv[3])))
-    elif action == "summary" and len(sys.argv) >= 5:
-        currency_code = sys.argv[5] if len(sys.argv) >= 6 else None
-        print(json.dumps(client.get_basic_summary(sys.argv[3], sys.argv[4], currency_code=currency_code)))
+    elif action == "tag-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_tag(sys.argv[2])))
+    elif action == "tag-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_tag(sys.argv[2])))
+    elif action == "tag-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_tag_payload(sys.argv[2], sys.argv[3])))
+    elif action == "tag-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_tag(sys.argv[2])))
+    elif action == "summary" and len(sys.argv) >= 4:
+        currency_code = sys.argv[4] if len(sys.argv) >= 5 else None
+        print(json.dumps(client.get_basic_summary(sys.argv[2], sys.argv[3], currency_code=currency_code)))
     elif action == "budgets":
-        start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
-        end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
+        start = sys.argv[2] if len(sys.argv) >= 3 and sys.argv[2] != "-" else None
+        end = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
         print(json.dumps(client.list_budgets(start=start, end=end)))
-    elif action == "budget-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_budget(sys.argv[3])))
-    elif action == "budget-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_budget(sys.argv[3])))
-    elif action == "budget-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_budget(sys.argv[3], sys.argv[4])))
-    elif action == "budget-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_budget(sys.argv[3])))
+    elif action == "budget-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_budget(sys.argv[2])))
+    elif action == "budget-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_budget(sys.argv[2])))
+    elif action == "budget-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_budget(sys.argv[2], sys.argv[3])))
+    elif action == "budget-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_budget(sys.argv[2])))
     elif action == "available-budgets":
+        start = sys.argv[2] if len(sys.argv) >= 3 and sys.argv[2] != "-" else None
+        end = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        print(json.dumps(client.list_available_budgets(start=start, end=end)))
+    elif action == "available-budget-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_available_budget(sys.argv[2])))
+    elif action == "budget-limits" and len(sys.argv) >= 4:
+        print(json.dumps(client.list_budget_limits(sys.argv[2], sys.argv[3])))
+    elif action == "budget-limit-list" and len(sys.argv) >= 3:
         start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
         end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
-        print(json.dumps(client.list_available_budgets(start=start, end=end)))
-    elif action == "available-budget-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_available_budget(sys.argv[3])))
-    elif action == "budget-limits" and len(sys.argv) >= 5:
-        print(json.dumps(client.list_budget_limits(sys.argv[3], sys.argv[4])))
-    elif action == "budget-limit-list" and len(sys.argv) >= 4:
-        start = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
-        end = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
-        print(json.dumps(client.list_budget_limits_by_budget(sys.argv[3], start=start, end=end)))
-    elif action == "budget-limit-get" and len(sys.argv) >= 5:
-        print(json.dumps(client.get_budget_limit(sys.argv[3], sys.argv[4])))
-    elif action == "budget-limit-create" and len(sys.argv) >= 5:
-        print(json.dumps(client.create_budget_limit(sys.argv[3], sys.argv[4])))
-    elif action == "budget-limit-update" and len(sys.argv) >= 6:
-        print(json.dumps(client.update_budget_limit(sys.argv[3], sys.argv[4], sys.argv[5])))
-    elif action == "budget-limit-delete" and len(sys.argv) >= 5:
-        print(json.dumps(client.delete_budget_limit(sys.argv[3], sys.argv[4])))
-    elif action == "budget-transactions" and len(sys.argv) >= 4:
-        start = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
-        end = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
-        tx_type = sys.argv[6] if len(sys.argv) >= 7 and sys.argv[6] != "-" else None
-        print(json.dumps(client.list_budget_transactions(sys.argv[3], start=start, end=end, tx_type=tx_type)))
-    elif action == "budget-limit-transactions" and len(sys.argv) >= 5:
-        print(json.dumps(client.list_budget_limit_transactions(sys.argv[3], sys.argv[4])))
-    elif action == "transactions-without-budget":
+        print(json.dumps(client.list_budget_limits_by_budget(sys.argv[2], start=start, end=end)))
+    elif action == "budget-limit-get" and len(sys.argv) >= 4:
+        print(json.dumps(client.get_budget_limit(sys.argv[2], sys.argv[3])))
+    elif action == "budget-limit-create" and len(sys.argv) >= 4:
+        print(json.dumps(client.create_budget_limit(sys.argv[2], sys.argv[3])))
+    elif action == "budget-limit-update" and len(sys.argv) >= 5:
+        print(json.dumps(client.update_budget_limit(sys.argv[2], sys.argv[3], sys.argv[4])))
+    elif action == "budget-limit-delete" and len(sys.argv) >= 4:
+        print(json.dumps(client.delete_budget_limit(sys.argv[2], sys.argv[3])))
+    elif action == "budget-transactions" and len(sys.argv) >= 3:
         start = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
         end = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
         tx_type = sys.argv[5] if len(sys.argv) >= 6 and sys.argv[5] != "-" else None
+        print(json.dumps(client.list_budget_transactions(sys.argv[2], start=start, end=end, tx_type=tx_type)))
+    elif action == "budget-limit-transactions" and len(sys.argv) >= 4:
+        print(json.dumps(client.list_budget_limit_transactions(sys.argv[2], sys.argv[3])))
+    elif action == "transactions-without-budget":
+        start = sys.argv[2] if len(sys.argv) >= 3 and sys.argv[2] != "-" else None
+        end = sys.argv[3] if len(sys.argv) >= 4 and sys.argv[3] != "-" else None
+        tx_type = sys.argv[4] if len(sys.argv) >= 5 and sys.argv[4] != "-" else None
         print(json.dumps(client.list_transactions_without_budget(start=start, end=end, tx_type=tx_type)))
-    elif action == "chart-account" and len(sys.argv) >= 5:
-        period = sys.argv[5] if len(sys.argv) >= 6 else None
-        print(json.dumps(client.get_account_chart_overview(sys.argv[3], sys.argv[4], period=period)))
-    elif action == "insight" and len(sys.argv) >= 7:
-        filter_ids = sys.argv[7] if len(sys.argv) >= 8 else None
-        accounts = sys.argv[8] if len(sys.argv) >= 9 else None
+    elif action == "chart-account" and len(sys.argv) >= 4:
+        period = sys.argv[4] if len(sys.argv) >= 5 else None
+        print(json.dumps(client.get_account_chart_overview(sys.argv[2], sys.argv[3], period=period)))
+    elif action == "insight" and len(sys.argv) >= 6:
+        filter_ids = sys.argv[6] if len(sys.argv) >= 7 else None
+        accounts = sys.argv[7] if len(sys.argv) >= 8 else None
         print(json.dumps(client.get_insight(
-            sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6],
+            sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
             filter_ids=filter_ids, accounts=accounts
         )))
-    elif action == "insight-expense-category" and len(sys.argv) >= 5:
-        categories = sys.argv[5] if len(sys.argv) >= 6 else None
-        accounts = sys.argv[6] if len(sys.argv) >= 7 else None
+    elif action == "insight-expense-category" and len(sys.argv) >= 4:
+        categories = sys.argv[4] if len(sys.argv) >= 5 else None
+        accounts = sys.argv[5] if len(sys.argv) >= 6 else None
         print(json.dumps(client.get_expense_category_insight(
-            sys.argv[3], sys.argv[4], categories=categories, accounts=accounts
+            sys.argv[2], sys.argv[3], categories=categories, accounts=accounts
         )))
-    elif action == "autocomplete" and len(sys.argv) >= 5:
-        print(json.dumps(client.autocomplete(sys.argv[3], sys.argv[4])))
+    elif action == "autocomplete" and len(sys.argv) >= 4:
+        print(json.dumps(client.autocomplete(sys.argv[2], sys.argv[3])))
     elif action == "bills":
         print(json.dumps(client.list_bills()))
-    elif action == "bill-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_bill(sys.argv[3])))
-    elif action == "bill-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_bill(sys.argv[3])))
-    elif action == "bill-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_bill(sys.argv[3], sys.argv[4])))
-    elif action == "bill-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_bill(sys.argv[3])))
+    elif action == "bill-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_bill(sys.argv[2])))
+    elif action == "bill-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_bill(sys.argv[2])))
+    elif action == "bill-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_bill(sys.argv[2], sys.argv[3])))
+    elif action == "bill-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_bill(sys.argv[2])))
     elif action == "piggybanks":
         print(json.dumps(client.list_piggy_banks()))
-    elif action == "piggybank-get" and len(sys.argv) >= 4:
-        print(json.dumps(client.get_piggy_bank(sys.argv[3])))
-    elif action == "piggybank-create" and len(sys.argv) >= 4:
-        print(json.dumps(client.create_piggy_bank(sys.argv[3])))
-    elif action == "piggybank-update" and len(sys.argv) >= 5:
-        print(json.dumps(client.update_piggy_bank(sys.argv[3], sys.argv[4])))
-    elif action == "piggybank-delete" and len(sys.argv) >= 4:
-        print(json.dumps(client.delete_piggy_bank(sys.argv[3])))
-    elif action == "attachment-create" and len(sys.argv) >= 6:
-        title = sys.argv[6] if len(sys.argv) >= 7 else None
+    elif action == "piggybank-get" and len(sys.argv) >= 3:
+        print(json.dumps(client.get_piggy_bank(sys.argv[2])))
+    elif action == "piggybank-create" and len(sys.argv) >= 3:
+        print(json.dumps(client.create_piggy_bank(sys.argv[2])))
+    elif action == "piggybank-update" and len(sys.argv) >= 4:
+        print(json.dumps(client.update_piggy_bank(sys.argv[2], sys.argv[3])))
+    elif action == "piggybank-delete" and len(sys.argv) >= 3:
+        print(json.dumps(client.delete_piggy_bank(sys.argv[2])))
+    elif action == "attachment-create" and len(sys.argv) >= 5:
+        title = sys.argv[5] if len(sys.argv) >= 6 else None
         print(json.dumps(client.create_attachment(
-            sys.argv[3], sys.argv[4], sys.argv[5], title=title
+            sys.argv[2], sys.argv[3], sys.argv[4], title=title
         )))
-    elif action == "attachment-upload" and len(sys.argv) >= 5:
-        print(json.dumps(client.upload_attachment(sys.argv[3], sys.argv[4])))
+    elif action == "attachment-upload" and len(sys.argv) >= 4:
+        print(json.dumps(client.upload_attachment(sys.argv[2], sys.argv[3])))
     elif action == "networth":
-        # Usage: networth <token> [YYYY-MM-DD] [CURRENCY_CODE]
-        as_of = sys.argv[3] if len(sys.argv) >= 4 else None
-        currency_code = sys.argv[4] if len(sys.argv) >= 5 else None
+        # Usage: networth [YYYY-MM-DD] [CURRENCY_CODE]
+        as_of = sys.argv[2] if len(sys.argv) >= 3 else None
+        currency_code = sys.argv[3] if len(sys.argv) >= 4 else None
         print(json.dumps(client.net_worth_summary(as_of=as_of, currency_code=currency_code)))
     elif action == "report":
-        # Usage: report <token> [YYYY-MM]
+        # Usage: report [YYYY-MM]
         year, month = None, None
-        if len(sys.argv) >= 4:
-            parts = sys.argv[3].split("-")
+        if len(sys.argv) >= 3:
+            parts = sys.argv[2].split("-")
             year = int(parts[0])
             month = int(parts[1])
         print(json.dumps(client.monthly_report(year, month)))
     elif action == "trend":
-        # Usage: trend <token> [granularity] [count]
+        # Usage: trend [granularity] [count]
         # granularity: monthly (default), quarterly, yearly
         # count: number of periods (default 6)
-        granularity = sys.argv[3] if len(sys.argv) >= 4 else "monthly"
-        count = int(sys.argv[4]) if len(sys.argv) >= 5 else 6
+        granularity = sys.argv[2] if len(sys.argv) >= 3 else "monthly"
+        count = int(sys.argv[3]) if len(sys.argv) >= 4 else 6
         print(json.dumps(client.trend_report(granularity, count)))
     else:
         print(json.dumps({"error": True, "message": "Invalid action or missing arguments"}))

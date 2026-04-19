@@ -1,13 +1,14 @@
 # 交易查询与管理
 
+本模块处理“查、搜、改、删、账户列表”这类已存在数据的操作。凡是更新或删除，都先拿到真实交易组 ID，再执行。
+
 ## 列出交易
 
 ```bash
-scripts/firefly_client.py transactions <TOKEN> [START] [END] [TYPE]
+python3 scripts/firefly_client.py transactions [START] [END] [TYPE]
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `START`：可选，开始日期，格式必须是 `YYYY-MM-DD`。
 - `END`：可选，结束日期，格式必须是 `YYYY-MM-DD`。
 - `TYPE`：可选，默认 `all`。常用值：`all`、`withdrawal`、`deposit`、`transfer`。
@@ -21,7 +22,7 @@ scripts/firefly_client.py transactions <TOKEN> [START] [END] [TYPE]
 ## 列出账户
 
 ```bash
-scripts/firefly_client.py accounts <TOKEN> [TYPE]
+python3 scripts/firefly_client.py accounts [TYPE]
 ```
 
 适用场景：
@@ -32,11 +33,10 @@ scripts/firefly_client.py accounts <TOKEN> [TYPE]
 ## 搜索交易
 
 ```bash
-scripts/firefly_client.py search <TOKEN> '<QUERY>'
+python3 scripts/firefly_client.py search '<QUERY>'
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `QUERY`：必填，搜索表达式，建议整体用单引号包住。
 - CLI 当前固定使用 Firefly 的默认分页参数：`page=1`、`limit=50`；这两个参数没有暴露为命令行参数。
 
@@ -52,17 +52,16 @@ scripts/firefly_client.py search <TOKEN> '<QUERY>'
 
 ```bash
 # 查看交易详情
-scripts/firefly_client.py get <TOKEN> <TRANSACTION_ID>
+python3 scripts/firefly_client.py get <TRANSACTION_ID>
 
 # 更新交易
-scripts/firefly_client.py update <TOKEN> <TRANSACTION_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py update <TRANSACTION_ID> '<JSON_DATA>'
 
 # 删除交易
-scripts/firefly_client.py delete <TOKEN> <TRANSACTION_ID>
+python3 scripts/firefly_client.py delete <TRANSACTION_ID>
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `TRANSACTION_ID`：必填，指交易组 ID，也就是接口返回里的顶层 `data.id`；不是 split 内部的 `transaction_journal_id`。
 - `JSON_DATA`：仅 `update` 需要。可以是 JSON 字符串，或一个本地 JSON 文件路径。
 
@@ -112,11 +111,10 @@ scripts/firefly_client.py delete <TOKEN> <TRANSACTION_ID>
 ## 自动补全
 
 ```bash
-scripts/firefly_client.py autocomplete <TOKEN> <RESOURCE_TYPE> '<QUERY>'
+python3 scripts/firefly_client.py autocomplete <RESOURCE_TYPE> '<QUERY>'
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `RESOURCE_TYPE`：必填，可选值：`accounts`、`tags`、`categories`、`budgets`、`bills`、`piggy-banks`、`transactions`、`currencies`。
 - `QUERY`：必填，模糊匹配关键字，建议整体用单引号包住。
 - CLI 默认 `limit=10`，命令行未暴露自定义 limit。
@@ -130,11 +128,10 @@ scripts/firefly_client.py autocomplete <TOKEN> <RESOURCE_TYPE> '<QUERY>'
 ## 批量更新交易
 
 ```bash
-scripts/firefly_client.py bulk-update <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py bulk-update '<JSON_DATA>'
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `JSON_DATA`：必填，可以是 JSON 字符串或本地 JSON 文件路径。
 - 顶层必须是对象或对象数组，每个对象都必须同时包含 `where` 和 `update`。
 - 当前只允许 `where.account_id` 和 `update.account_id`。
@@ -157,13 +154,12 @@ scripts/firefly_client.py bulk-update <TOKEN> '<JSON_DATA>'
 ## 预算相关交易查询
 
 ```bash
-scripts/firefly_client.py budget-transactions <TOKEN> <BUDGET_ID> [START] [END] [TYPE]
-scripts/firefly_client.py budget-limit-transactions <TOKEN> <BUDGET_ID> <LIMIT_ID>
-scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYPE]
+python3 scripts/firefly_client.py budget-transactions <BUDGET_ID> [START] [END] [TYPE]
+python3 scripts/firefly_client.py budget-limit-transactions <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py transactions-without-budget [START] [END] [TYPE]
 ```
 
 参数规则：
-- `TOKEN`：必填，Firefly III access token。
 - `BUDGET_ID`：必填，预算 ID，不是预算名。
 - `LIMIT_ID`：仅 `budget-limit-transactions` 需要，必填，对应预算额度分段 ID。
 - `START` / `END`：可选，格式必须是 `YYYY-MM-DD`。

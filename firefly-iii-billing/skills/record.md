@@ -1,9 +1,11 @@
 # 记账流程
 
+先判断用户给的是文字描述还是图片；两者都属于记账，但确认策略不同。不要跳过元数据读取和关键字段校验。
+
 ## 步骤 1：获取元数据
 
 ```bash
-scripts/firefly_client.py list <TOKEN>
+python3 scripts/firefly_client.py list
 ```
 
 返回并发获取的四类元数据：`accounts`、`categories`、`tags`、`budgets`。
@@ -38,7 +40,7 @@ scripts/firefly_client.py list <TOKEN>
 - **仅当单笔交易需要按不同分类/预算拆分金额时**，才使用拆分交易（在同一次 API 调用中提交多个 transaction 对象）
 - **严禁将多笔独立交易误用为拆分交易**：截图中的多条支付记录、多个商户的消费，都是独立交易，不应添加拆分说明字段
 
-**图片记账**：利用多模态视觉能力识别图片内容，每张图片独立处理，严禁合并
+**图片记账**：利用多模态视觉能力识别图片内容，每张图片独立处理，严禁把多张图片强行并成一笔交易。若一张图里本身有多条独立支付记录，仍按多笔独立交易处理。
 
 **交易信息提取规则**：
 
@@ -99,15 +101,17 @@ scripts/firefly_client.py list <TOKEN>
 
 **图片记账**：
 - 必须展示识别结果供用户确认
+- 没有看清金额、商户、日期或支付方式时，不要猜
+- 如果图片中缺少精确时间，但日期和其余字段清楚，先明确告知“时间仍需你确认”再继续
 
 确认格式示例（单笔）：
 
 ```
-📝 交易确认
+交易确认
 
 | 字段 | 值 |
 |------|-----|
-| 类型 | 💸 支出 |
+| 类型 | 支出 |
 | 金额 | ￥XX.XX |
 | 日期 | 20XX-XX-XX XX:XX:XX |
 | 描述 | 商品描述 |
@@ -123,13 +127,13 @@ scripts/firefly_client.py list <TOKEN>
 确认格式示例（多笔）：
 
 ```
-📝 交易确认（共 2 笔，合计 ￥XX.XX）
+交易确认（共 2 笔，合计 ￥XX.XX）
 
-① 💸 支出 ￥XX.XX · 20XX-XX-XX XX:XX
+1. 支出 ￥XX.XX · 20XX-XX-XX XX:XX
    商品描述 | 信用卡-XX银行 → XX便利店
    分类: 分类名称 · 预算: 预算名称 · 标签: 标签名称
 
-② 💸 支出 ￥XX.XX · 20XX-XX-XX XX:XX
+2. 支出 ￥XX.XX · 20XX-XX-XX XX:XX
    打车描述 | XX钱包 → XX出行
    分类: 分类名称 · 预算: 预算名称 · 标签: 标签名称
 
@@ -145,10 +149,10 @@ scripts/firefly_client.py list <TOKEN>
 
 ```bash
 # 单笔交易（JSON 字符串）
-scripts/firefly_client.py post <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py post '<JSON_DATA>'
 
 # 或使用临时文件（数据量大时）
-scripts/firefly_client.py post <TOKEN> <FILE_PATH>
+python3 scripts/firefly_client.py post <FILE_PATH>
 ```
 
 **提交策略**：

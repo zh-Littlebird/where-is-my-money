@@ -2,10 +2,12 @@
 
 本文件只描述当前 agent MVP 直接依赖的分析接口。优先使用官方 API 返回的结果，不要先用本地聚合替代。
 
+分析类请求先判断用户要的是“总览数字”“分组洞察”“预算额度/余额”“异常明细回查”中的哪一种，再选命令，不要上来就拉全量交易。
+
 ## 基础汇总
 
 ```bash
-scripts/firefly_client.py summary <TOKEN> <START> <END> [CURRENCY_CODE]
+python3 scripts/firefly_client.py summary <START> <END> [CURRENCY_CODE]
 ```
 
 对应接口：
@@ -24,7 +26,7 @@ scripts/firefly_client.py summary <TOKEN> <START> <END> [CURRENCY_CODE]
 ## 账户余额趋势
 
 ```bash
-scripts/firefly_client.py chart-account <TOKEN> <START> <END> [PERIOD]
+python3 scripts/firefly_client.py chart-account <START> <END> [PERIOD]
 ```
 
 对应接口：
@@ -42,7 +44,7 @@ scripts/firefly_client.py chart-account <TOKEN> <START> <END> [PERIOD]
 ## 洞察矩阵
 
 ```bash
-scripts/firefly_client.py insight <TOKEN> <SCOPE> <GROUP> <START> <END> [FILTER_IDS] [ACCOUNT_IDS]
+python3 scripts/firefly_client.py insight <SCOPE> <GROUP> <START> <END> [FILTER_IDS] [ACCOUNT_IDS]
 ```
 
 对应接口：
@@ -79,22 +81,22 @@ scripts/firefly_client.py insight <TOKEN> <SCOPE> <GROUP> <START> <END> [FILTER_
 
 ```bash
 # 支出按预算聚合
-scripts/firefly_client.py insight <TOKEN> expense budget 2026-04-01 2026-04-18
+python3 scripts/firefly_client.py insight expense budget 2026-04-01 2026-04-18
 
 # 查询没有预算的支出
-scripts/firefly_client.py insight <TOKEN> expense no-budget 2026-04-01 2026-04-18
+python3 scripts/firefly_client.py insight expense no-budget 2026-04-01 2026-04-18
 
 # 收入按标签聚合，只看指定账户
-scripts/firefly_client.py insight <TOKEN> income tag 2026-04-01 2026-04-18 - 1,2
+python3 scripts/firefly_client.py insight income tag 2026-04-01 2026-04-18 - 1,2
 
 # 转账总额
-scripts/firefly_client.py insight <TOKEN> transfer total 2026-04-01 2026-04-18
+python3 scripts/firefly_client.py insight transfer total 2026-04-01 2026-04-18
 ```
 
 ## 支出分类洞察
 
 ```bash
-scripts/firefly_client.py insight-expense-category <TOKEN> <START> <END> [CATEGORY_IDS] [ACCOUNT_IDS]
+python3 scripts/firefly_client.py insight-expense-category <START> <END> [CATEGORY_IDS] [ACCOUNT_IDS]
 ```
 
 对应接口：
@@ -113,7 +115,7 @@ scripts/firefly_client.py insight-expense-category <TOKEN> <START> <END> [CATEGO
 ## 预算列表
 
 ```bash
-scripts/firefly_client.py budgets <TOKEN> [START] [END]
+python3 scripts/firefly_client.py budgets [START] [END]
 ```
 
 对应接口：
@@ -130,8 +132,8 @@ scripts/firefly_client.py budgets <TOKEN> [START] [END]
 ## 可用预算
 
 ```bash
-scripts/firefly_client.py available-budgets <TOKEN> [START] [END]
-scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
+python3 scripts/firefly_client.py available-budgets [START] [END]
+python3 scripts/firefly_client.py available-budget-get <AVAILABLE_BUDGET_ID>
 ```
 
 对应接口：
@@ -149,12 +151,12 @@ scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
 ## 预算额度
 
 ```bash
-scripts/firefly_client.py budget-limits <TOKEN> <START> <END>
-scripts/firefly_client.py budget-limit-list <TOKEN> <BUDGET_ID> [START] [END]
-scripts/firefly_client.py budget-limit-get <TOKEN> <BUDGET_ID> <LIMIT_ID>
-scripts/firefly_client.py budget-limit-create <TOKEN> <BUDGET_ID> '<JSON_DATA>'
-scripts/firefly_client.py budget-limit-update <TOKEN> <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
-scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py budget-limits <START> <END>
+python3 scripts/firefly_client.py budget-limit-list <BUDGET_ID> [START] [END]
+python3 scripts/firefly_client.py budget-limit-get <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py budget-limit-create <BUDGET_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-update <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-delete <BUDGET_ID> <LIMIT_ID>
 ```
 
 对应接口：
@@ -181,9 +183,9 @@ scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
 ## 预算交易闭环
 
 ```bash
-scripts/firefly_client.py budget-transactions <TOKEN> <BUDGET_ID> [START] [END] [TYPE]
-scripts/firefly_client.py budget-limit-transactions <TOKEN> <BUDGET_ID> <LIMIT_ID>
-scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYPE]
+python3 scripts/firefly_client.py budget-transactions <BUDGET_ID> [START] [END] [TYPE]
+python3 scripts/firefly_client.py budget-limit-transactions <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py transactions-without-budget [START] [END] [TYPE]
 ```
 
 对应接口：
@@ -207,9 +209,9 @@ scripts/firefly_client.py transactions-without-budget <TOKEN> [START] [END] [TYP
 这些命令可以保留，但它们是本地包装，不是当前 MVP 的事实源：
 
 ```bash
-scripts/firefly_client.py networth <TOKEN> [YYYY-MM-DD] [CURRENCY_CODE]
-scripts/firefly_client.py report <TOKEN> [YYYY-MM]
-scripts/firefly_client.py trend <TOKEN> [monthly|quarterly|yearly] [COUNT]
+python3 scripts/firefly_client.py networth [YYYY-MM-DD] [CURRENCY_CODE]
+python3 scripts/firefly_client.py report [YYYY-MM]
+python3 scripts/firefly_client.py trend [monthly|quarterly|yearly] [COUNT]
 ```
 
 使用规则：

@@ -2,22 +2,24 @@
 
 本文件中的能力暂不属于当前 agent MVP 主链路。只有当用户明确要求账单、存钱目标或附件上传时，再加载并使用。
 
+如果用户只是普通记账、查预算、查分类花销，不要读取本文件。
+
 ## 账单管理
 
 ```bash
-scripts/firefly_client.py bills <TOKEN>
+python3 scripts/firefly_client.py bills
 
 # 详情
-scripts/firefly_client.py bill-get <TOKEN> <BILL_ID>
+python3 scripts/firefly_client.py bill-get <BILL_ID>
 
 # 创建
-scripts/firefly_client.py bill-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py bill-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py bill-update <TOKEN> <BILL_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py bill-update <BILL_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py bill-delete <TOKEN> <BILL_ID>
+python3 scripts/firefly_client.py bill-delete <BILL_ID>
 ```
 
 查看所有账单，支持周期性支出（房租、会员费、保险等）关联。
@@ -25,19 +27,19 @@ scripts/firefly_client.py bill-delete <TOKEN> <BILL_ID>
 ## 存钱罐管理
 
 ```bash
-scripts/firefly_client.py piggybanks <TOKEN>
+python3 scripts/firefly_client.py piggybanks
 
 # 详情
-scripts/firefly_client.py piggybank-get <TOKEN> <PIGGY_BANK_ID>
+python3 scripts/firefly_client.py piggybank-get <PIGGY_BANK_ID>
 
 # 创建
-scripts/firefly_client.py piggybank-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py piggybank-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py piggybank-update <TOKEN> <PIGGY_BANK_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py piggybank-update <PIGGY_BANK_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py piggybank-delete <TOKEN> <PIGGY_BANK_ID>
+python3 scripts/firefly_client.py piggybank-delete <PIGGY_BANK_ID>
 ```
 
 查看所有存钱罐，支持储蓄目标场景（如"往旅行基金存了500"）。
@@ -77,8 +79,8 @@ client.update_tag_description(tag_id, "new description")
 
 ```bash
 # 1. 创建附件元数据
-scripts/firefly_client.py attachment-create <TOKEN> TransactionJournal <JOURNAL_ID> receipt.jpg '消费小票'
+python3 scripts/firefly_client.py attachment-create TransactionJournal <JOURNAL_ID> receipt.jpg '消费小票'
 
 # 2. 上传文件内容
-scripts/firefly_client.py attachment-upload <TOKEN> <ATTACHMENT_ID> /path/to/receipt.jpg
+python3 scripts/firefly_client.py attachment-upload <ATTACHMENT_ID> /path/to/receipt.jpg
 ```

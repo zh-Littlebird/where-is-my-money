@@ -7,24 +7,26 @@
 - 保持原有交易命令和分析命令不变
 - 自动新建开关约束的是交易流程里的隐式新建，不拦截用户明确要求的主数据创建
 - 更新和删除属于显式维护操作，执行前应向用户确认对象和影响范围
+- 如果用户只给了名称、没给 ID，先查列表或做自动补全，再决定是否创建或更新
+- 删除前优先读取详情，避免删错同名或近似名称对象
 
 ## 账户
 
 ```bash
 # 列表
-scripts/firefly_client.py accounts <TOKEN> [TYPE]
+python3 scripts/firefly_client.py accounts [TYPE]
 
 # 详情
-scripts/firefly_client.py account-get <TOKEN> <ACCOUNT_ID>
+python3 scripts/firefly_client.py account-get <ACCOUNT_ID>
 
 # 创建
-scripts/firefly_client.py account-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py account-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py account-update <TOKEN> <ACCOUNT_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py account-update <ACCOUNT_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py account-delete <TOKEN> <ACCOUNT_ID>
+python3 scripts/firefly_client.py account-delete <ACCOUNT_ID>
 ```
 
 适用场景：
@@ -36,19 +38,19 @@ scripts/firefly_client.py account-delete <TOKEN> <ACCOUNT_ID>
 
 ```bash
 # 列表
-scripts/firefly_client.py categories <TOKEN>
+python3 scripts/firefly_client.py categories
 
 # 详情
-scripts/firefly_client.py category-get <TOKEN> <CATEGORY_ID>
+python3 scripts/firefly_client.py category-get <CATEGORY_ID>
 
 # 创建
-scripts/firefly_client.py category-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py category-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py category-update <TOKEN> <CATEGORY_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py category-update <CATEGORY_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py category-delete <TOKEN> <CATEGORY_ID>
+python3 scripts/firefly_client.py category-delete <CATEGORY_ID>
 ```
 
 适用场景：
@@ -60,30 +62,30 @@ scripts/firefly_client.py category-delete <TOKEN> <CATEGORY_ID>
 
 ```bash
 # 列表
-scripts/firefly_client.py budgets <TOKEN> [START] [END]
+python3 scripts/firefly_client.py budgets [START] [END]
 
 # 详情
-scripts/firefly_client.py budget-get <TOKEN> <BUDGET_ID>
+python3 scripts/firefly_client.py budget-get <BUDGET_ID>
 
 # 创建
-scripts/firefly_client.py budget-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py budget-update <TOKEN> <BUDGET_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-update <BUDGET_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py budget-delete <TOKEN> <BUDGET_ID>
+python3 scripts/firefly_client.py budget-delete <BUDGET_ID>
 
 # 可用预算
-scripts/firefly_client.py available-budgets <TOKEN> [START] [END]
-scripts/firefly_client.py available-budget-get <TOKEN> <AVAILABLE_BUDGET_ID>
+python3 scripts/firefly_client.py available-budgets [START] [END]
+python3 scripts/firefly_client.py available-budget-get <AVAILABLE_BUDGET_ID>
 
 # 预算额度明细
-scripts/firefly_client.py budget-limit-list <TOKEN> <BUDGET_ID> [START] [END]
-scripts/firefly_client.py budget-limit-get <TOKEN> <BUDGET_ID> <LIMIT_ID>
-scripts/firefly_client.py budget-limit-create <TOKEN> <BUDGET_ID> '<JSON_DATA>'
-scripts/firefly_client.py budget-limit-update <TOKEN> <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
-scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py budget-limit-list <BUDGET_ID> [START] [END]
+python3 scripts/firefly_client.py budget-limit-get <BUDGET_ID> <LIMIT_ID>
+python3 scripts/firefly_client.py budget-limit-create <BUDGET_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-update <BUDGET_ID> <LIMIT_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py budget-limit-delete <BUDGET_ID> <LIMIT_ID>
 ```
 
 说明：
@@ -100,24 +102,24 @@ scripts/firefly_client.py budget-limit-delete <TOKEN> <BUDGET_ID> <LIMIT_ID>
 
 ```bash
 # 列表
-scripts/firefly_client.py tags <TOKEN>
+python3 scripts/firefly_client.py tags
 
 # 详情
-scripts/firefly_client.py tag-get <TOKEN> <TAG_OR_ID>
+python3 scripts/firefly_client.py tag-get <TAG_OR_ID>
 
 # 创建
-scripts/firefly_client.py tag-create <TOKEN> '<JSON_DATA>'
+python3 scripts/firefly_client.py tag-create '<JSON_DATA>'
 
 # 更新
-scripts/firefly_client.py tag-update <TOKEN> <TAG_OR_ID> '<JSON_DATA>'
+python3 scripts/firefly_client.py tag-update <TAG_OR_ID> '<JSON_DATA>'
 
 # 删除
-scripts/firefly_client.py tag-delete <TOKEN> <TAG_OR_ID>
+python3 scripts/firefly_client.py tag-delete <TAG_OR_ID>
 ```
 
 说明：
 - Firefly III 标签接口支持传标签名或标签 ID
-- 传标签名时若包含非 ASCII 字符，优先改用 ID，避免编码问题
+- 当前客户端会对标签名做 URL 编码，因此中文、空格和特殊字符都可以安全传递；若对象存在重名风险，仍优先使用 ID
 
 ## JSON 提交约定
 
